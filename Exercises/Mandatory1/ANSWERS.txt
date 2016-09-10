@@ -1,0 +1,57 @@
+# Mandatory Handin 1
+awis@itu.dk
+NOTE: I time results on my smartphone so unfortunately the results are not very precise.
+
+
+## Exercise 2.1
+
+### 1)
+Results:
+- 7.0 seconds
+- 7.0 seconds
+- 7.0 seconds
+
+### 2)
+See MyAtomicInteger.java for sourcecode
+
+
+### 3)
+Yes it is possible and I get the same result.
+The new version has running time results:
+- 4.1 seconds
+- 4.2 seconds
+- 4.3 seconds
+
+
+### 4)
+No since race conditions still occur. Volatile does not ensure that multiple writes at the same time happens serially equivalent.
+
+
+### 5)
+It is not neccesary for AtomicInteger to be final, since the object is never changed only its internal values, which in turn does not get affected by the final modifier.
+
+As for speed I get the following results:
+- 4.2 seconds
+- 3.9 seconds
+- 4.0 seconds
+
+So a small speedup, but it is difficult to say when I do timings manually.
+
+## Exercise 2.2
+
+### 1)
+It is important because OneValueCache changes throughout the lifetime of the program. Therefore it is mutable, and when we have mutable fields we need to ensure visibility between threads.
+This is achieved by using the volatile modifier. 
+
+### 2)
+Final has the same properties as volatile, so in some rare cases there could be problems with visibility of the fields. Also by making them final there can never happen thread-issues so if it is not neccesary to have mutable fields, it is a good idea to make them final in any case.
+
+
+
+## 2.3
+
+### 1)
+Increment and Get is synchronized. The counts array is final by good design.
+getSpan does not need to be synchronized since it only reads a value which is never changed on the object - therefore no raceconditions or other thread-issues can happen.
+
+### 2)
