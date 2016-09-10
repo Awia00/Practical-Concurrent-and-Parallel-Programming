@@ -55,3 +55,42 @@ Increment and Get is synchronized. The counts array is final by good design.
 getSpan does not need to be synchronized since it only reads a value which is never changed on the object - therefore no raceconditions or other thread-issues can happen.
 
 ### 2)
+See the changes in SimpleHistogram.java
+
+### 3)
+See Histogram3 in SimpleHistogram.java
+
+The methods do not need to be syncronized, since the values in the array are threadsafe. and since the array is also threadsafe since it is final, there is no issues which needs to be solved by the syncronized keyword
+
+### 4)
+See Histogram4 in SimpleHistogram.java
+
+
+### 5)
+All of the methods are implemented in a way as to provide a snapshot of the values.
+Histogram2 returns a copy of the array and therefore will not see any future changes to the original histogram.
+Histogram3 converts all the AtomicIntegers to ints in a new array and therefore will not either see any changes
+Histogram4 puts all the values into an int array and therefore is like the copy in histogram2.
+
+
+### 6)
+See Histogram5 in SimpleHistogram.java
+
+
+## 2.4
+
+### 1)
+See TestCache.java for implementation
+
+### 2)
+
+### 3)
+
+### 4)
+
+### 5)
+
+### 6)
+
+### 7)
+s

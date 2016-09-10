@@ -1,10 +1,12 @@
 // For week 2
 // sestoft@itu.dk * 2014-09-04
 
+import java.util.concurrent.atomic.*;
+
 class SimpleHistogram {
   
   public static void main(String[] args) {
-    final Histogram histogram = new Histogram2(5_000_000);
+    final Histogram histogram = new Histogram5(5_000_000);
     countPrimes(histogram);
     dump(histogram);
   }
@@ -67,6 +69,7 @@ interface Histogram {
   public void increment(int bin);
   public int getCount(int bin);
   public int getSpan();
+  public int[] getBins();
 }
 
 class Histogram1 implements Histogram {
@@ -83,6 +86,9 @@ class Histogram1 implements Histogram {
   public int getSpan() {
     return counts.length;
   }
+  public int[] getBins() {
+    return counts.clone();
+  }
 }
 
 class Histogram2 implements Histogram {
@@ -98,5 +104,94 @@ class Histogram2 implements Histogram {
   }
   public int getSpan() {
     return counts.length;
+  }
+
+  public int[] getBins() {
+    return counts.clone();
+  }
+}
+
+
+class Histogram3 implements Histogram {
+  private final AtomicInteger[] counts;
+  public Histogram3(int span) {
+    this.counts = new AtomicInteger[span];
+    for(int i = 0; i<span; i++)
+    {
+      counts[i] = new AtomicInteger();
+    }
+  }
+  public void  increment(int bin) {
+    counts[bin].getAndIncrement();
+  }
+  public int getCount(int bin) {
+    return counts[bin].get();
+  }
+  public int getSpan() {
+    return counts.length;
+  }
+
+  public int[] getBins() {
+    int[] values = new int[counts.length];
+    for(int i = 0; i< counts.length; i++)
+    {
+      values[i] = counts[i].intValue();
+    }
+    return values;
+  }
+}
+
+
+class Histogram4 implements Histogram {
+  private final AtomicIntegerArray counts;
+  public Histogram4(int span) {
+    this.counts = new AtomicIntegerArray(span);
+  }
+  public void increment(int bin) {
+    counts.getAndIncrement(bin);
+  }
+  public int getCount(int bin) {
+    return counts.get(bin);
+  }
+  public int getSpan() {
+    return counts.length();
+  }
+  public int[] getBins() {
+    int[] values = new int[counts.length()];
+    for(int i = 0; i< counts.length(); i++)
+    {
+      values[i] = counts.get(i);
+    }
+    return values;
+  }
+}
+
+
+class Histogram5 implements Histogram {
+  private final LongAdder[] counts;
+  public Histogram5(int span) {
+    this.counts = new LongAdder[span];
+    for(int i = 0; i<span; i++)
+    {
+      counts[i] = new LongAdder();
+    }
+  }
+  public void  increment(int bin) {
+    counts[bin].increment();
+  }
+  public int getCount(int bin) {
+    return counts[bin].intValue();
+  }
+  public int getSpan() {
+    return counts.length;
+  }
+
+  public int[] getBins() {
+    int[] values = new int[counts.length];
+    for(int i = 0; i< counts.length; i++)
+    {
+      values[i] = counts[i].intValue();
+    }
+    return values;
   }
 }

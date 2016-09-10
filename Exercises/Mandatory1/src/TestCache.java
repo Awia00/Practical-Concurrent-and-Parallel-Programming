@@ -11,31 +11,55 @@ import java.util.function.Function;
 
 
 public class TestCache {
+
+  final long start = 10_000_000_000L, range = 20_000L;
+
   public static void main(String[] args) throws InterruptedException {
     Computable<Long, long[]> factorizer = new Factorizer(),
-      cachingFactorizer = new Memoizer1<Long,long[]>(factorizer);
+      cachingFactorizer = new Memoizer0<Long,long[]>(factorizer);
     // cachingFactorizer = factorizer;
     
-    long p = 71827636563813227L;
+    exerciseFactorizer(cachingFactorizer);
 
-    print(factorizer.compute(p));
-
-    long[] factors = cachingFactorizer.compute(p);
-    print(factors);
-
-    print(cachingFactorizer.compute(p));
-    print(cachingFactorizer.compute(p));
-    print(cachingFactorizer.compute(p));
-    print(cachingFactorizer.compute(p));
-    print(cachingFactorizer.compute(p));
-    print(cachingFactorizer.compute(p));
-    print(cachingFactorizer.compute(p));
+    System.out.println("The amount of calls to the factorizer is: " + ((Factorizer)factorizer).getCount());
   }
 
   private static void print(long[] arr) {
     for (long x : arr) 
       System.out.print(" " + x);
     System.out.println();
+  }
+
+  private static void exerciseFactorizer(Computable<Long, long[]> f) {
+    final int threadCount = 16;
+    final long start = 10_000_000_000L, range = 20_000L;
+    System.out.println(f.getClass());
+    Thread[] threads = new Thread[threadCount];
+
+    for(long i = 0; i<threadCount; i++)
+    {
+      final long t = i;
+      threads[(int)i] = new Thread(() -> {
+        for(long j = start; j < start+range; j++)
+        {
+          try{
+            f.compute(j);
+          }catch(InterruptedException ex) { }
+          
+        }
+        for(long j = start + range + t*5000; j < start + range*2 + t*5000; j++)
+        {
+          try{
+            f.compute(j);
+          }catch(InterruptedException ex) { }
+        }
+      });
+      threads[(int)i].start();
+    }
+    try {
+        for (int t=0; t<threadCount; t++) 
+          threads[t].join();
+      } catch (InterruptedException exn) { }
   }
 }
 
@@ -69,6 +93,24 @@ class Factorizer implements Computable<Long, long[]> {
     long[] result = new long[factors.size()];
     for (int i=0; i<result.length; i++) 
       result[i] = factors.get(i);
+    return result;
+  }
+}
+
+
+class Memoizer0 <A, V> implements Computable<A, V> {
+  private final Map<A, V> cache = new ConcurrentHashMap<A, V>();
+  private final Computable<A, V> c;
+  
+  public Memoizer0(Computable<A, V> c) { this.c = c; }
+
+  public synchronized V compute(A arg) throws InterruptedException {
+    V result = cache.computeIfAbsent(arg, a -> 
+    { 
+      try{ 
+        return c.compute(a);
+      } catch (InterruptedException exp) { return null; }
+    });
     return result;
   }
 }
