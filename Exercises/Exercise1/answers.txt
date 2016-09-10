@@ -1,0 +1,104 @@
+# 1.1
+1)
+The program returns values just above 10000000
+- 10793921
+- 10633395
+- 11564782
+
+2)
+Now the program prints 200 which is the expected/wanted.
+This is most likely due to the fact that race conditions are not that common. When each threads only increments 100 times it is likely that, first of all, the first thread finishes before the other, or race condition does not occur in that time.
+
+3)
+It does not make a difference as the two other versions of "count = count + 1" is only syntatic sugar and creates exaclty the same machine code.
+
+4)
+The result should be zero but is in fact larger than any other result we have gotten before.
+- 8587351237
+- -1758083
+- -4296595167
+- -4289896966
+
+And yes the methods need to be synchronized since they still access the same field - hence the race conditions.
+
+5)
+
+# 1.2
+1)
+This happens when t1 writes a "-" and while waiting t2 also writes "-" then we get "--". In the same sense if a double "|" appears it has to be before or after a double dash, since the threads then are out of sync.
+
+2)
+By making print synchronized the threads will wait for eachother to finish the entire print method (including waiting and printing both characters) 
+
+3)
+	private final Object lock = new Object();
+	public synchronized void print() 
+	{
+		synchronized(lock){
+			System.out.print("-");
+			try { Thread.sleep(50); } catch (InterruptedException exn) { }
+				System.out.print("|");
+		}
+	}
+
+4)
+done
+
+# 1.3
+1)
+done
+
+2)
+it does, since the "read" thread now sees the "write" thread´s write.
+
+3)
+No it no longer works as intended, and that is because the "read" thread still does not know that the write thread has written to the variable.
+
+4)
+Since we dont have multiple threads that do write, we can't have race conditions. Therefore Volitale on the value field is enough as it makes sure that the "read" thread gets "notified" of the changes the "write" thread has made.
+
+# 1.4
+sry used cmd so couldnt do it easily - next time i will have bash up and running.
+
+# 1.5
+1)
+My results are as following:
+- Sum is 1571260.000000 and should be 2000000.000000
+- Sum is 1721040.000000 and should be 2000000.000000
+- Sum is 1620081.000000 and should be 2000000.000000
+
+This indicates that the class is not threadsafe
+
+2)
+They are not threadsafe because, using the keyword synchronized for instances means getting a lock on the object, and synchronized on statics means getting a lock on the class - which is not the same "thing". 
+The variable has nothing to do with the lock.
+
+3)
+I have introduced a static final Object to function as a lock for both the instance and static methods - thereby making the code thread-safe, since they now use the same lock.
+
+
+# 1.6
+1)
+The simplest way would be to make every method synchronized.
+
+2)
+Using synchronized on all the methods would allow very little concurrency, since one single lock is used on the object. What could be done was to use syncronized statements, one for inserting into the array and one for changing values of the array. One could even make an array of locks such that each spot could have its own lock.
+
+3)
+This would not introduce thread-safety because each lock is different and therefore does not block any of the other methods, which is what we want.
+
+# 1.7
+1)
+To do so i would add a static object which could be used in a synchronized statement right around totalSize++ in the add() and in getTotalSize().
+
+2)
+Either use the same object as before or add a new one for locking, and then lock the object in the constructor and in the allLists().
+
+
+
+# 1.8
+1)
+The synchronized keyword on a static method locks the class, and even though MysteryB extends MysteryA it is still another class, which means that it is two different locks the mehtods use and therefore we get race conditions.
+
+2)
+One could add a static final Object on MysteryA as the lock. Both MysteryA and MysteryB could then in the synchronized statement use this object as the lock and acheive thread-safety.
