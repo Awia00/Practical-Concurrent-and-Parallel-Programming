@@ -83,14 +83,47 @@ See Histogram5 in SimpleHistogram.java
 See TestCache.java for implementation
 
 ### 2)
+(Memoizer1)
+Yes there is 115000 calls, but unfortunately i cannot see usertime and realtime. But I have timed the implementation with my phone:
+    - 12.3 seconds
+    - 12.3 seconds
 
 ### 3)
+Calls to factorizer (Memoizer2) = 237013 so that is about double of the Memoizer1
+
+Timing results:
+    - 6.6 seconds
+    - 6.4 seconds
+
+I can hear on my machine that it is hard at work on this one: which makes sense because there is a lot more work done on all the cores.
 
 ### 4)
+Calls to factorizer (Memoizer3) = 116673
+
+time results:
+    - 5.6 seconds
+    - 5.7 seconds
+
+A few more calls to factorizer due to double calculations, but overall fast (because its multithreaded) and more effective than Memoizer2 since the cache is better
 
 ### 5)
+Calls to factorizer (Memoizer4) = 115000
+    - 5.5 seconds
+    - 5.5 seconds
+
+The minimal amount of calls to the factorizer while having a good speedup from multithreading. But conceptually more difficult to understand
 
 ### 6)
+Calls to factorizer (Memoizer5) = 115000
+    - 5.6 seconds
+    - 5.5 seconds
+
+The minimal amount of calls to the factorizer while having a good speedup from multithreading.  But conceptually more difficult to understand like memoizer4.
 
 ### 7)
-s
+see TestCache.java for implementation
+Calls to factorizer (Memoizer0) = 115000
+    - 5.9 seconds
+    - 5.9 seconds
+
+So a bit slower than 3, 4 and 5 but still way faster and way simpler than some of the other classes.

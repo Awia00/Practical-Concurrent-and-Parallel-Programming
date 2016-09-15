@@ -104,7 +104,7 @@ class Memoizer0 <A, V> implements Computable<A, V> {
   
   public Memoizer0(Computable<A, V> c) { this.c = c; }
 
-  public synchronized V compute(A arg) throws InterruptedException {
+  public V compute(A arg) throws InterruptedException {
     V result = cache.computeIfAbsent(arg, a -> 
     { 
       try{ 
