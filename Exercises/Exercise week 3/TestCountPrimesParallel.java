@@ -2,6 +2,7 @@
 import java.util.Arrays;
 import java.util.stream.*;
 
+// Exercise 3.2 both 1 and 2)
 public class TestCountPrimesParallel {
   public static void main(String[] args) {
     final int N = 10_000_000;

@@ -50,7 +50,10 @@ public class TestWordStream {
     readWords(filename).collect(Collectors.groupingBy(s -> s.length()));
 
     System.out.println("\n Exercise 3.3 9)");
-    readWords(filename).map(s -> letters(s)).limit(100).forEach(System.out::println);
+    readWords(filename).parallel().map(s -> s + ": " + letters(s)).limit(100).forEach(System.out::println);
+
+    System.out.println("\n Exercise 3.3 10)"); // does not work yet
+    System.out.println(readWords(filename).map(s -> letters(s)).reduce(new Treemap<>(),(newTree, accTree) -> newTree.addAll(accTree)).filter(x-> x.value == 'e').mapToInt(x -> x.value).sum()); 
   }
 
   public static Stream<String> readWords(String filename) {
@@ -70,9 +73,9 @@ public class TestWordStream {
     return reverse.equals(s) ? true : false; 
   }
 
+  // Exercise 3.3 9)
   public static Map<Character,Integer> letters(String s) {
-    Map<Character,Integer> res = new TreeMap<>(s.chars().mapToObj(i -> (char)i).collect(Collectors.toMap(k-> k, i -> i++)));
-    // TO DO: Implement properly
+    Map<Character,Integer> res = s.toLowerCase().chars().mapToObj(i -> (char)i).collect(Collectors.groupingBy(c->c, TreeMap::new,  Collectors.summingInt(c->1)));
     return res;
   }
 }
