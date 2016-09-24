@@ -1,0 +1,64 @@
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 69 Stepping 1, GenuineIntel; 4 "cores"
+# Date: 2016-09-23T10:59:29+0200
+4704.0 ns
+   0.1 ns
+  34.4 ns
+  34.4 ns
+  34.5 ns
+  34.3 ns
+  34.4 ns
+  34.4 ns
+  34.4 ns
+  34.7 ns
+  34.4 ns
+  34.5 ns
+  34.4 ns
+  34.5 ns +/-  0.161
+  85.6 ns +/-   110.44          2
+ 106.9 ns +/-     0.12          4
+  58.8 ns +/-    16.94          8
+  56.1 ns +/-     8.45         16
+  46.8 ns +/-     9.46         32
+1277.0 ns +/-  3880.81         64
+  43.1 ns +/-     3.32        128
+  46.3 ns +/-    10.86        256
+  43.8 ns +/-     4.61        512
+  42.2 ns +/-     0.13       1024
+  43.1 ns +/-     3.89       2048
+  41.2 ns +/-     1.81       4096
+  37.4 ns +/-     2.29       8192
+  36.1 ns +/-     1.15      16384
+  38.7 ns +/-     2.06      32768
+  34.4 ns +/-     0.89      65536
+  34.1 ns +/-     0.30     131072
+  34.2 ns +/-     0.29     262144
+  34.3 ns +/-     0.15     524288
+  34.5 ns +/-     0.59    1048576
+  35.2 ns +/-     1.32    2097152
+  34.8 ns +/-     0.94    4194304
+  34.5 ns +/-     0.29    8388608
+multiply                            727.1 ns    1426.29          2
+multiply                            139.0 ns     101.39          4
+multiply                            149.7 ns     103.29          8
+multiply                            256.6 ns     311.76         16
+multiply                             88.2 ns      58.49         32
+multiply                             77.5 ns      31.53         64
+multiply                             77.5 ns      11.11        128
+multiply                             68.5 ns       3.69        256
+multiply                             66.3 ns      17.79        512
+multiply                             43.5 ns       0.43       1024
+multiply                             48.3 ns       8.78       2048
+multiply                             46.0 ns       2.23       4096
+multiply                             39.2 ns       3.28       8192
+multiply                             35.6 ns       0.04      16384
+multiply                             35.4 ns       2.39      32768
+multiply                             37.3 ns       3.96      65536
+multiply                             34.2 ns       0.42     131072
+multiply                             34.2 ns       0.28     262144
+multiply                             34.3 ns       0.17     524288
+multiply                             34.2 ns       0.06    1048576
+multiply                             34.3 ns       0.23    2097152
+multiply                             34.4 ns       0.32    4194304
+multiply                             34.6 ns       0.38    8388608

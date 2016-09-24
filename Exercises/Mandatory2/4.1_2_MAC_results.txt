@@ -1,0 +1,20 @@
+# OS:   Mac OS X; 10.11.3; x86_64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  null; 4 "cores"
+# Date: 2016-09-23T10:52:37+0200
+Model Name:	MacBook Pro
+  Model Identifier:	MacBookPro12,1
+  Processor Name:	Intel Core i5
+  Processor Speed:	2,7 GHz
+  Number of Processors:	1
+  Total Number of Cores:	2
+  Memory:	8 GB
+pow                                  83.4 ns       1.21    4194304
+exp                                  63.8 ns       1.25    4194304
+log                                  25.7 ns       0.40   16777216
+sin                                 130.6 ns       1.18    2097152
+cos                                 133.3 ns       1.62    2097152
+tan                                 165.1 ns       2.12    2097152
+asin                                244.2 ns       4.37    1048576
+acos                                230.8 ns       3.94    2097152
+atan                                 53.5 ns       0.71    8388608
