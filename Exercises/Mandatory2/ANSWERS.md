@@ -4,7 +4,7 @@
 
 ## 4.1
 My specs:
-CPU: I7-4500U 1.8GHz turbo 2.4GHz, 4 cores
+CPU: I7-4500U 1.8GHz turbo 2.4GHz, 4 cores (two logical pr physical core)
 RAM: 8Gb
 
 ### 1)
@@ -52,12 +52,53 @@ The results for the last two mentioned tests are also a bit slower in average th
 ## 4.3
 
 ### 1)
+See the raw results in 4.3_1_results.txt
 
+### 2)
+See the graph in: 4.3_2_graph.png
 
+### 3)
+The results seem plausible and corrosponds ok with those shown in the slides. First of all running parallel with 1 thread is worse than running sequentially which makes sense due to the overhead of creating a thread compared to not creating one.
+The next noticable result is that increasing the amount of threads does not improve the result over 4 threads. This corrosponds fine with the fact that my machine has 4 logical cores. Any amount of threads over 4 will require the CPU to schedule the different threads work, which creates overhead.
+
+### 4) 
+Raw data: 4.3_4_results.txt
+graph: 4.3_4_graph.png
+
+Analysis:
+It does not deviate from the results using longcounter a lot - therefore less work, and using a tested library is preferable to making your own.
+
+### 5)
+See changes in code in TestCountPrimesThreads.java.
+
+At a glance it does not seem to improve the results on my machine either, atleast not a lot. 
 
 ## 4.4
+### 1)
+See TestCache.java for the implementation.
 
+Result:
+Memoizer1                       5608030.5 us   25634.88          2
 
+### 2)
+Result:
+Memoizer2                       2492652.4 us    9271.79          2
+
+### 3)
+Result:
+Memoizer3                       2308369.2 us    4731.56          2
+
+### 4)
+Result:
+Memoizer4                       2305144.7 us    2742.13          2
+
+### 5)
+Result:
+Memoizer5                       2306249.4 us    5819.39          2
+
+### 6)
+Result:
+Memoizer0                       2407164.9 us   19491.75          2
 
 
 
