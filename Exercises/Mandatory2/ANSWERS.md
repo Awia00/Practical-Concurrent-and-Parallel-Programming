@@ -4,7 +4,7 @@
 
 ## 4.1
 My specs:
-CPU: I7-4500U 1.8GHz turbo 2.4GHz, 4 cores (two logical pr physical core)
+CPU: I7-4500U 1.8GHz turbo 2.8GHz, 4 cores (two logical pr physical core)
 RAM: 8Gb
 
 ### 1)
@@ -77,31 +77,34 @@ At a glance it does not seem to improve the results on my machine either, atleas
 See TestCache.java for the implementation.
 
 Result:
-Memoizer1                       5608030.5 us   25634.88          2
+Memoizer1                       1841303.6 us   57689.50          2
 
 ### 2)
 Result:
-Memoizer2                       2492652.4 us    9271.79          2
+Memoizer2                       1405483.8 us   33479.61          2
 
 ### 3)
 Result:
-Memoizer3                       2308369.2 us    4731.56          2
+Memoizer3                       1083572.8 us    8560.58          2
 
 ### 4)
 Result:
-Memoizer4                       2305144.7 us    2742.13          2
+Memoizer4                       1079741.0 us    4107.02          2
 
 ### 5)
 Result:
-Memoizer5                       2306249.4 us    5819.39          2
+Memoizer5                       1085596.2 us    9004.84          2
 
 ### 6)
 Result:
-Memoizer0                       2407164.9 us   19491.75          2
+Memoizer0                       1173390.6 us    7803.46          2
 
 ### 7)
-These results corrosponds great to the results I got in the first Mandatory exercise. Memoizer3, 4 and 5 are the fastest, but the simple Memoizer0 holds up quite well and is more simple. There will be a lot of waiting between the 16 threads since they all have to calculate the first 2000 number, and therefore should wait for some of the results instead of calculating them. If we had choosen a lower amount of threads, there would be a lower amount of time waiting and more time calculating numbers.
-
-MANGLER STADIG AT SVARE PÅ GOETz
+These results corrosponds great to the results I got in the first Mandatory exercise. Memoizer3, 4 and 5 are the fastest, but the simple Memoizer0 holds up quite well and is more simple. 
+But as we have learned in this exercise the test from Mandatory1 was way to simple and comparing to it might not tell us a lot. Infact the problem with this test for benchmarking the CACHE, is that i both benchmarks the cache and the computation time of the factorization. Further more in the memoizations 0, 1, 3, 4, 5 there is bound to be time where the threads wait for eachother to calculate, which is also not completely related to how well the cache works, but also to how long the factorization takes. I personally see only about 75% utilization on 3,4,5,0 where 2 uses 100% of the CPU
 
 ### 8)
+To be able to test the cache alone, we need to know the computation time of the factorization (including the overlaps). When we know that, we can calculate how much time is saved when using a cache by subtracting it from the "real" factorization computation time without cache. Therefore it would be better to first test factorization without memoization and then compare each of the results with that.
+Alternatively one could make the compute method take minimal time, such that the only computation which is meassured is the computeIfAbsent (or the corrosponding based on the implementation ).
+
+One thing to take into account is that if the computation takes a lot of time, and the overlap is total, memoization2 might be just as fast as the others, because with all the other implementations (not counting memoization1) the threads would have to wait for the result - creating a situation where each thread either computes each value or wait for its entirety of its computation. Therefore testing a cache also depends on how much of the problemspace can be in the cache and how much of it is overlapping.

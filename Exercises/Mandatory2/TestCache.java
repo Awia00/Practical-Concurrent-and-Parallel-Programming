@@ -64,7 +64,6 @@ public class TestCache {
         break;
     }
     
-      
     final int threadCount = 16;
     final long start = 10_000_000_000L, range = 2_000L;
     Thread[] threads = new Thread[threadCount];
@@ -79,7 +78,7 @@ public class TestCache {
           }catch(InterruptedException ex) { }
           
         }
-        long newStart = start + range + t*5000;
+        long newStart = start + range + t*500;
         for(long j = newStart; j < newStart + range; j++)
         {
           try{
