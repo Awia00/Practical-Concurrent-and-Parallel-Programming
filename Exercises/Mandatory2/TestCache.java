@@ -79,7 +79,8 @@ public class TestCache {
           }catch(InterruptedException ex) { }
           
         }
-        for(long j = start + range + t*5000; j < start + range*2 + t*5000; j++)
+        long newStart = start + range + t*5000;
+        for(long j = newStart; j < newStart + range; j++)
         {
           try{
             f.compute(j);

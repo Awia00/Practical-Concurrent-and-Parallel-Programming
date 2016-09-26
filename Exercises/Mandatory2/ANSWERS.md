@@ -65,8 +65,7 @@ The next noticable result is that increasing the amount of threads does not impr
 Raw data: 4.3_4_results.txt
 graph: 4.3_4_graph.png
 
-Analysis:
-It does not deviate from the results using longcounter a lot - therefore less work, and using a tested library is preferable to making your own.
+It does not deviate from the results using longcounter a lot actually they corrosponds very much. One thing to notice is that 8 threads are actually faster than 4 with atomic long, but its a question of a few percentage and therefore is probably just jitter in the measurements. The results are generally a bit slower but only by a few percentage aswell and therefore I would use generally use AtomicLong since it requires less work, and by using a tested library you are less likely to oversee bugs yourself. 
 
 ### 5)
 See changes in code in TestCountPrimesThreads.java.
@@ -100,5 +99,9 @@ Memoizer5                       2306249.4 us    5819.39          2
 Result:
 Memoizer0                       2407164.9 us   19491.75          2
 
+### 7)
+These results corrosponds great to the results I got in the first Mandatory exercise. Memoizer3, 4 and 5 are the fastest, but the simple Memoizer0 holds up quite well and is more simple. There will be a lot of waiting between the 16 threads since they all have to calculate the first 2000 number, and therefore should wait for some of the results instead of calculating them. If we had choosen a lower amount of threads, there would be a lower amount of time waiting and more time calculating numbers.
 
+MANGLER STADIG AT SVARE PÅ GOETz
 
+### 8)
