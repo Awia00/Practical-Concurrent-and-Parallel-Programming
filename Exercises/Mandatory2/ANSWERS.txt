@@ -24,10 +24,10 @@ Overall the results seem plausible
 ### 2)
 The results are in the file: 4.1_2_results.txt
 
-Generally the results are a bit slower, but allign very much to the results of microbenchmarks. The deviation is generally a bit lower.
+Generally the results are a bit slower, but allign very much to the results of microbenchmarks. The standard deviation is generally a bit lower.
 
 I also have results from a Macbook - the results are shown in the file: 4.1_2_MAC_results.txt
-These results are even closer to my first results than the ones shown in microbenchmarks, which is promissing as for the realiability of the benchmarks.
+These results are closer to my first results than the ones shown in microbenchmarks, which is promissing as for the realiability of the benchmarks.
 
 
 ## 4.2
@@ -46,7 +46,7 @@ The results are shown in 4.2_2_results.txt
 
 The results generally corrosponds to the results in the slides.
 
-Point creation runs a lot faster than shown in the slides (slide 37: 80.9ns) but the result is also different (8388608 vs 4194304) the same is true for "thread create start" and "thread create start join". The results are different because Mark7 only waits until the running time is 0.25ms which apperently is earlier on my machine than the ones used for the results on the slides. 
+Point creation runs a lot faster than shown in the slides (slide 37: 80.9ns) but the result is also different (8388608 vs 4194304) the same is true for "thread create start" and "thread create start join". The results are different because Mark7 only waits until the running time is 0.25ms which apperently is earlier on my machine than the ones used for the results on the slides (which makes sense because its slower). 
 The results for the last two mentioned tests are also a bit slower in average than those in the slide, but that can be explained by the slightly slower processor i have (laptop processor with lower baseclock). Furthermmore thread create start has a huge standard deviation more simular to that of the server CPU from the slides. 
 
 ## 4.3
@@ -65,12 +65,12 @@ The next noticable result is that increasing the amount of threads does not impr
 Raw data: 4.3_4_results.txt
 graph: 4.3_4_graph.png
 
-It does not deviate from the results using longcounter a lot actually they corrosponds very much. One thing to notice is that 8 threads are actually faster than 4 with atomic long, but its a question of a few percentage and therefore is probably just jitter in the measurements. The results are generally a bit slower but only by a few percentage aswell and therefore I would use generally use AtomicLong since it requires less work, and by using a tested library you are less likely to oversee bugs yourself. 
+It does not deviate from the results using longcounter a lot actually they corrosponds very much. One thing to notice is that 8 threads are actually faster than 4 with atomic long, but its a question of a few percentage and therefore is probably just jitter in the measurements. The results are generally a bit slower but only by a few percentage aswell and therefore I would generally use AtomicLong since it requires less work, and by using a tested library you are less likely to oversee bugs yourself. 
 
 ### 5)
-See changes in code in TestCountPrimesThreads.java.
+See changes in code in TestCountPrimesThreads.java
 
-At a glance it does not seem to improve the results on my machine either, atleast not a lot. 
+At a glance it does not seem to improve the results on my machine either, atleast not a lot. As for the optional task I cannot really explain why - maybe compiler optimization? 
 
 ## 4.4
 ### 1)
@@ -101,7 +101,7 @@ Memoizer0                       1173390.6 us    7803.46          2
 
 ### 7)
 These results corrosponds great to the results I got in the first Mandatory exercise. Memoizer3, 4 and 5 are the fastest, but the simple Memoizer0 holds up quite well and is more simple. 
-But as we have learned in this exercise the test from Mandatory1 was way to simple and comparing to it might not tell us a lot. Infact the problem with this test for benchmarking the CACHE, is that i both benchmarks the cache and the computation time of the factorization. Further more in the memoizations 0, 1, 3, 4, 5 there is bound to be time where the threads wait for eachother to calculate, which is also not completely related to how well the cache works, but also to how long the factorization takes. I personally see only about 75% utilization on 3,4,5,0 where 2 uses 100% of the CPU
+But as we have learned in this exercise the test from Mandatory1 was way to simple and comparing to it might not tell us a lot. Infact the problem with this test for benchmarking the CACHE, is that it benchmarks both the cache and the computation time of the factorization. Further more in the memoizations 0, 1, 3, 4, 5 there is bound to be time where the threads wait for eachother to calculate, which is also not completely related to how well the cache works, but also to how long the factorization takes. I personally see only about 75% utilization on 3,4,5,0 where 2 uses 100% of the CPU
 
 ### 8)
 To be able to test the cache alone, we need to know the computation time of the factorization (including the overlaps). When we know that, we can calculate how much time is saved when using a cache by subtracting it from the "real" factorization computation time without cache. Therefore it would be better to first test factorization without memoization and then compare each of the results with that.
