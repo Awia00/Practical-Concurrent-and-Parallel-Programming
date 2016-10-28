@@ -10,12 +10,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.function.IntToDoubleFunction;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class TestStripedMap {
   public static void main(String[] args) {
     SystemInfo();
     testAllMaps();    // Must be run with: java -ea TestStripedMap 
-    exerciseAllMaps();
+    //exerciseAllMaps();
     //timeAllMaps();
   }
 
@@ -149,13 +152,77 @@ public class TestStripedMap {
     assert map.get(17).equals("B") && map.containsKey(17);
     assert map.get(217).equals("E") && map.containsKey(217);
     assert map.get(34).equals("F") && map.containsKey(34);
-    map.forEach((k, v) -> System.out.printf("%10d maps to %s%n", k, v));    
+    map.forEach((k, v) -> System.out.printf("%10d maps to %s%n", k, v));
+
+    // My own tests
+    assert map.remove(1) == null;
+  }
+
+  private static void ReallocateBucketTest(int bucketSize, int lockSize)
+  {
+    StripedWriteMap map = new StripedWriteMap(bucketSize, lockSize);
+    int i = 0;
+    while(i <= bucketSize) // precisely the amount of elements needed to make reallocate call.
+    {
+      map.put(i, i++ +"");
+    }
+    assert bucketSize != map.buckets.length;
+  }
+
+
+  private static void TestMapConcurrent(final int bucketSize, final int lockCount, final int threadCount, final int testSize, final int randomRange)
+  {
+    final OurMap<Integer, String> map = new StripedWriteMap(bucketSize, lockCount);
+    final CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
+    ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+    
+    AtomicInteger totalSum = new AtomicInteger();
+    for (int t=0; t<threadCount; t++) {
+      pool.execute(new Runnable(){
+        public void run() { 
+          try{
+            Random random = new Random();
+            int sum = 0;
+            barrier.await();
+            for(int i = 0; i<testSize; i++)
+            {
+              map.containsKey(random.nextInt(randomRange));
+              sum += map.put(random.nextInt(randomRange), "") == null ? 1:0;
+              sum += map.putIfAbsent(random.nextInt(randomRange), "")  == null ? 1:0;
+              sum -= map.remove(random.nextInt(randomRange)) != null ? 1:0;
+            }
+            totalSum.addAndGet(sum);
+            barrier.await();
+          } catch(Exception exn)
+          {
+            System.out.println(exn.getMessage());
+            System.out.println("Amount of waiting threads: " + barrier.getNumberWaiting());
+          }
+        }
+      });
+    }
+    try {
+      barrier.await(); 
+      barrier.await(); 
+    } catch (Exception exn) {
+      System.out.println(exn.getMessage());
+      System.out.println("Amount of waiting threads: " + barrier.getNumberWaiting());
+     }
+
+    final AtomicInteger amtKeys = new AtomicInteger();
+    map.forEach((k,v) -> amtKeys.addAndGet(1));
+    assert amtKeys.intValue() == totalSum.intValue();
+    assert !barrier.isBroken();
+    assert barrier.getNumberWaiting() == 0;
+    pool.shutdown();
   }
 
   private static void testAllMaps() {
     testMap(new SynchronizedMap<Integer,String>(25));
     testMap(new StripedMap<Integer,String>(25, 5));
-    testMap(new StripedWriteMap<Integer,String>(25, 5));
+    testMap(new StripedWriteMap<Integer,String>(25, 5));ReallocateBucketTest(25, 5); // a specific test for StripedWriteMap
+    TestMapConcurrent(77, 7, 16, 10_000, 100);  
+
     testMap(new WrapConcurrentHashMap<Integer,String>());
   }
 
@@ -618,7 +685,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
   // Visibility of writes to reads is ensured by writes writing to
   // the stripe's size component (even if size does not change) and
   // reads reading from the stripe's size component.
-  private volatile ItemNode<K,V>[] buckets;
+  public volatile ItemNode<K,V>[] buckets;
   private final int lockCount;
   private final Object[] locks;
   private final AtomicIntegerArray sizes;  

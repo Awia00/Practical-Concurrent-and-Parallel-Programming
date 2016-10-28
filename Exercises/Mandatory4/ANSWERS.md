@@ -5,9 +5,66 @@
 ## Exercise 8.1
 
 ### 1)
+#### Generally
+First of all the test does not adhere to the guideline of having tests only test one thing. The test tries to do a combination of things which makes the test useless as to fint out where a bug is located - the test only shows presence of bugs.
 
+#### Method Coverage:
+The test almost has method coverage since every public method (declared in ourmap) is called except the reallocateBuckets(oldBuckets). We will see in statement coverage why that is true. Further more, the private method getHash is called from the public methods, and makeBuckets is called from reallocateBuckets.
+The Class has an inner class ItemNode, and Holder and each of their methods are also called from the public methods of the map.
+
+The constructor is not tested - but this is a small detail.
+
+#### StatementCoverage:
+- getHash: only one path and therefore is covered.
+
+- containsKey: only one path and therefore covered.
+
+- get: the inner part of the if-statement that gets tested by: 
+    *assert map.get(117).equals("A");*
+    since there is an element in the list and it is found.
+
+- size: the inner part of the for loop gets executed in the testcase: 
+    *assert map.size() == 2;*
+
+- put: the inner parts of the if-statement does not get tested, since the bucketsize is 25 and there does not get added 25/5 elements.
+- putIfAbsent: The same problem with the reallocate if statement. but the if-statement in the syncronized part is reached by: 
+    *assert map.putIfAbsent(17, "D").equals("B");*
+    *assert map.putIfAbsent(217, "E") == null;*
+    since the first gets into the if part, and the second gets into the else part.
+
+- remove: the if statement is reached in:
+    *assert map.remove(117).equals("C");*
+    but the implicit else part which returns null is never tested.
+
+- forEach: the inner parts of the forloop is tested since bs.length always is 25. The inner part of the while loop is reached since forEach is called after adding elements and therefore node != null while will at some point be true. Which also corresponds to the fact that something is printed when it is run.
+
+- reallocateBuckets(): is called here in this test:
+    *map.reallocateBuckets();*
+
+- reallocateBuckets(final ItemNode<K,V>[] oldBuckets): is not covered since it is never called, due to the fact that the buckets never overflow (since they have room for 25/5 and nowhere near as many is added.)
+
+- due to how the other tests are written: search, and get, set on ItemNode and Holder is both statement covered.
+
+- delete on ItemNode is coveredBy: is not covered since only 1 test exists where this is called and thereforenot all inner parts of the if-statements can be called (only the one which returns the element which was found.).
+
+Once again ofcourse the constructor is not tested. 
+
+
+#### MyTests:
+I need to test Constructor, the reallocate buckets on overflow, and the remove.
+
+I start by extending the testMap with more tests on remove.
+
+    *assert map.remove(1234).equals(null);*
+
+This will make remove fully covered - BUT it is not possible to directly from this method (the only method which walls ItemNode.delete) to make the delete hit the inner part of if(node == null) since that can only be if remove was called with null - which it cannot since getHash does not handle nulls (understandably). This opens up the question as to how a map should handle nulls(it shouldnt). Right now exceptions will probably be thrown for all the public methods if called with null.
+
+Furthermore to test reallocate I created a new test *ReallocateBucketTest*, which adds elements to a StripedWriteMap, and when bucketSize amount of elements are added. To do so i made buckets public - I know im sorry.
 
 ### 2)
+The test is Implemented in the method: TestMapConcurrent();
+
+It runs (though it never finishes)
 
 ### 3)
 
