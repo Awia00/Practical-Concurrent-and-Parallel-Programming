@@ -64,7 +64,9 @@ Furthermore to test reallocate I created a new test *ReallocateBucketTest*, whic
 ### 2)
 The test is Implemented in the method: TestMapConcurrent();
 
-It runs (though it never finishes)
+First of all, it does not say anything about the correctness of containskey since it does not affect sum and therefore does not get asserted. Basically it is redundant in this test.
+
+Since the correctness of put, putIfAbsent and remove has been tested synchronously and we now see that the overlapping areas happen serially equivalent (sum is correct) we can be fairly certain that the Sequential consistency correctness property is fine. 
 
 ### 3)
 
