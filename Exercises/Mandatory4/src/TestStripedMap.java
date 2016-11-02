@@ -18,6 +18,7 @@ public class TestStripedMap {
   public static void main(String[] args) {
     SystemInfo();
     testAllMaps();    // Must be run with: java -ea TestStripedMap 
+    testAllMapsConcurrent();
     //exerciseAllMaps();
     //timeAllMaps();
   }
@@ -170,28 +171,70 @@ public class TestStripedMap {
   }
 
 
-  private static void TestMapConcurrent(final int bucketSize, final int lockCount, final int threadCount, final int testSize, final int randomRange)
+  private static int getThreadFromValue(int key, String value)
   {
-    final OurMap<Integer, String> map = new StripedWriteMap(bucketSize, lockCount);
+    return Integer.parseInt(value.substring(0, value.length() - (key+"").length()-1));
+  }
+
+  private static void TestMapConcurrent(final OurMap<Integer, String> map, final int threadCount, final int testSize, final int randomRange)
+  {
     final CyclicBarrier barrier = new CyclicBarrier(threadCount+1);
     ExecutorService pool = Executors.newFixedThreadPool(threadCount);
     
-    AtomicInteger totalSum = new AtomicInteger();
+    final AtomicInteger totalSum = new AtomicInteger();
+    final AtomicIntegerArray countsTotal = new AtomicIntegerArray(threadCount);
     for (int t=0; t<threadCount; t++) {
+      final int threadName = t;
       pool.execute(new Runnable(){
         public void run() { 
           try{
             Random random = new Random();
             int sum = 0;
+            int[] counts = new int[threadCount];
             barrier.await();
             for(int i = 0; i<testSize; i++)
             {
-              map.containsKey(random.nextInt(randomRange));
-              sum += map.put(random.nextInt(randomRange), "") == null ? 1:0;
-              sum += map.putIfAbsent(random.nextInt(randomRange), "")  == null ? 1:0;
-              sum -= map.remove(random.nextInt(randomRange)) != null ? 1:0;
+              String result;
+              int key = random.nextInt(randomRange);
+              map.containsKey(key);
+
+              key = random.nextInt(randomRange);
+              result = map.put(key, threadName + ":" + key);           
+              if(result == null)
+              {
+                sum++;
+                counts[threadName]++;
+              }else
+              {
+                int thread = getThreadFromValue(key, result);
+                counts[thread]--;
+                counts[threadName]++;
+              }
+
+              key = random.nextInt(randomRange);
+              result = map.putIfAbsent(key, threadName + ":" + key);
+              if(result == null)
+              {
+                sum++;
+                counts[threadName]++;
+              }
+
+              key = random.nextInt(randomRange);
+              result = map.remove(key);
+              if(result != null)
+              {
+                sum--;
+                int thread = getThreadFromValue(key, result);
+                counts[thread]--;
+              }
             }
+            barrier.await();
+            
             totalSum.addAndGet(sum);
+            for(int i = 0; i<threadCount; i++)
+            {
+              countsTotal.addAndGet(i, counts[i]);
+            }
             barrier.await();
           } catch(Exception exn)
           {
@@ -204,25 +247,40 @@ public class TestStripedMap {
     try {
       barrier.await(); 
       barrier.await(); 
+      barrier.await(); 
     } catch (Exception exn) {
       System.out.println(exn.getMessage());
       System.out.println("Amount of waiting threads: " + barrier.getNumberWaiting());
      }
 
     final AtomicInteger amtKeys = new AtomicInteger();
-    map.forEach((k,v) -> amtKeys.addAndGet(1));
+    map.forEach((k,v) ->{
+      int threadName = Integer.parseInt(v.substring(0, v.length() - (k+"").length()-1));
+      int valueKey =  Integer.parseInt(v.substring(v.length() - (k+"").length()));
+      assert threadName > 0 && threadName < threadCount;
+      assert k == valueKey; 
+      countsTotal.addAndGet(threadName, -1);
+      amtKeys.addAndGet(1);
+    });
+    for(int i = 0; i<threadCount; i++)
+    {
+      assert countsTotal.get(i) == 0;
+    }
+
     assert amtKeys.intValue() == totalSum.intValue();
     assert !barrier.isBroken();
     assert barrier.getNumberWaiting() == 0;
     pool.shutdown();
   }
 
+  private static void testAllMapsConcurrent(){
+    TestMapConcurrent(new StripedWriteMap<Integer,String>(77, 7), 16, 10_000, 100);  
+    TestMapConcurrent(new WrapConcurrentHashMap<Integer,String>(), 16, 10_000, 100);  
+  }
   private static void testAllMaps() {
     testMap(new SynchronizedMap<Integer,String>(25));
     testMap(new StripedMap<Integer,String>(25, 5));
-    testMap(new StripedWriteMap<Integer,String>(25, 5));ReallocateBucketTest(25, 5); // a specific test for StripedWriteMap
-    TestMapConcurrent(77, 7, 16, 10_000, 100);  
-
+    testMap(new StripedWriteMap<Integer,String>(25, 5)); ReallocateBucketTest(25, 5); // a specific test for StripedWriteMap
     testMap(new WrapConcurrentHashMap<Integer,String>());
   }
 

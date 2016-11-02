@@ -66,23 +66,34 @@ The test is Implemented in the method: TestMapConcurrent();
 
 First of all, it does not say anything about the correctness of containskey since it does not affect sum and therefore does not get asserted. Basically it is redundant in this test.
 
-Since the correctness of put, putIfAbsent and remove has been tested synchronously and we now see that the overlapping areas happen serially equivalent (sum is correct) we can be fairly certain that the Sequential consistency correctness property is fine. 
+Since the correctness of put, putIfAbsent and remove has been tested synchronously and we have now tested that on multiple threads (4 core machine) overlappings does not seem to happen. But having said that, we only ensure that the results of the methods are functioning - we have no idea if the internals of the functions have done the right thing. That is why we in the next exercises will further test that the methods has done what they should while working concurrently.
 
 ### 3)
+Is done - no errors found.
 
 ### 4)
+Added. Still passes tests.
 
 ### 5)
+Done still no errors.
 
 ### 6)
+To further test the map the containsKey method needs to be tested. To test that method concurrently one could create two threads which runs one after the other one which puts in elements and another which runs the containskey and checks that the elements are there. This only provides us with the weak Quiescent consistency. Furthermore one could test on multiple threads with only put calls that the containsKey will continue to be able to state that the elements exist. Lastly on a map with elements, have each thread only remove an element and check afterwards that the element is still gone (with multiple threads running). 
 
 ## Exercise 8.2
 
 ### 1)
+The functional tests did not notice that i removed any of the syncronized keywords, which makes sense since it only has effect on visibility and raceconditions.
 
 ### 2)
+I removed the syncronized on put and recieved an assert error. After adding the syncronized statement again and removing it from putIfAbsent another assert error happened. I continued to do this with remove and lockAllAndThen. I made sure to write the statements again after each test to not see errors because of previously removed statements.
+
+Furthermore i tried to lock on 0 in put and only after several runs did it catch an assert error. Same happned when i wrote 0 on any of the other locks. This makes sense since there is overhead in taking a lock and furthermore the implementation will still in some cases wait for eachother if they want the lock on the same object.
+
+Locking on this should make worse results since there no longer can be a situation where one of the other methods wait for that lock.
 
 ### 3)
+
 
 ### 4)
 
