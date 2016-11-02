@@ -257,7 +257,7 @@ public class TestStripedMap {
     map.forEach((k,v) ->{
       int threadName = Integer.parseInt(v.substring(0, v.length() - (k+"").length()-1));
       int valueKey =  Integer.parseInt(v.substring(v.length() - (k+"").length()));
-      assert threadName > 0 && threadName < threadCount;
+      assert threadName >= 0 && threadName < threadCount;
       assert k == valueKey; 
       countsTotal.addAndGet(threadName, -1);
       amtKeys.addAndGet(1);
@@ -743,10 +743,10 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
   // Visibility of writes to reads is ensured by writes writing to
   // the stripe's size component (even if size does not change) and
   // reads reading from the stripe's size component.
-  public volatile ItemNode<K,V>[] buckets;
-  private final int lockCount;
-  private final Object[] locks;
-  private final AtomicIntegerArray sizes;  
+  public ItemNode<K,V>[] buckets;
+  private int lockCount;
+  private Object[] locks;
+  private int[] sizes;  
 
   public StripedWriteMap(int bucketCount, int lockCount) {
     if (bucketCount % lockCount != 0)
@@ -754,7 +754,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
     this.lockCount = lockCount;
     this.buckets = makeBuckets(bucketCount);
     this.locks = new Object[lockCount];
-    this.sizes = new AtomicIntegerArray(lockCount);
+    this.sizes = new int[lockCount];
     for (int stripe=0; stripe<lockCount; stripe++) 
       this.locks[stripe] = new Object();
   }
@@ -776,7 +776,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
     final ItemNode<K,V>[] bs = buckets;
     final int h = getHash(k), stripe = h % lockCount, hash = h % bs.length;
     // The sizes access is necessary for visibility of bs elements
-    return sizes.get(stripe) != 0 && ItemNode.search(bs[hash], k, null);
+    return sizes[stripe] != 0 && ItemNode.search(bs[hash], k, null);
   }
 
   // Return value v associated with key k, or null
@@ -785,7 +785,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
     final int h = getHash(k), stripe = h % lockCount, hash = h % bs.length;
     final Holder<V> old = new Holder<V>();
     // The sizes access is necessary for visibility of bs elements
-    if(sizes.get(stripe) != 0 && ItemNode.search(bs[hash], k, old))
+    if(sizes[stripe] != 0 && ItemNode.search(bs[hash], k, old))
     {
       return old.get();
     }
@@ -796,7 +796,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
     int sum = 0;
     for(int stripe = 0; stripe<lockCount; stripe++)
     {
-      sum += sizes.get(stripe);
+      sum += sizes[stripe];
     }
     return sum;
   }
@@ -818,7 +818,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
         newNode = ItemNode.delete(node, k, old);
       bs[hash] = new ItemNode<K,V>(k, v, newNode);
       // Write for visibility; increment if k was not already in map
-      afterSize = sizes.addAndGet(stripe, newNode == node ? 1 : 0);
+      afterSize = sizes[stripe] += newNode == node ? 1 : 0;
     }
     if (afterSize * lockCount > bs.length)
       reallocateBuckets(bs);
@@ -833,14 +833,15 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
     synchronized (locks[stripe]) {
       bs = buckets;
       final int hash = h % bs.length;
-      if(sizes.get(stripe) != 0 && ItemNode.search(bs[hash], k, null))
+      if(sizes[stripe] != 0 && ItemNode.search(bs[hash], k, null))
       {
         return bs[hash].v;
       }
       else{
         bs[hash] = new ItemNode<K,V>(k, v, bs[hash]);
         // Write for visibility; increment if k was not already in map
-        afterSize = sizes.addAndGet(stripe, 1);
+        
+        afterSize = sizes[stripe]++;
       }
     }
     // i keept this outside since it does not need to be inside the synchronizd statement
@@ -864,7 +865,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
       if(node != null)
       {
         bs[hash] = node;
-        sizes.addAndGet(stripe, -1);
+        sizes[stripe]--;
         return old.get();
       }
     }
@@ -876,7 +877,7 @@ class StripedWriteMap<K,V> implements OurMap<K,V> {
     ItemNode<K,V>[] bs = buckets;
     for(int i = 0; i<bs.length; i++)
     {
-      sizes.get(i % lockCount);
+      //int value = sizes[i % lockCount];
       ItemNode<K,V> node = buckets[i];
       while (node != null) {
         consumer.accept(node.k, node.v);
