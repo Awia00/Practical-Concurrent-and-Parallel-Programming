@@ -5,10 +5,14 @@ import java.util.concurrent.atomic.*;
 */
 public class CasHistogram implements Histogram
 {
-    private AtomicReference<Integer>[] bins;
-    public CasHistogram(int size)
+    private final AtomicInteger[] bins;
+    public CasHistogram(int span)
     {
-        bins = new AtomicReference[size];
+        bins = new AtomicInteger[span];
+        for(int i =0; i<span; i++)
+        {
+            bins[i] = new AtomicInteger(0);
+        }
     }
 
     public void increment(int bin)
@@ -45,30 +49,21 @@ public class CasHistogram implements Histogram
     public int getAndClear(int bin)
     {
         int oldValue;
-        int newValue;
         do{
             oldValue = bins[bin].get();
-            newValue = oldValue + 1;
-        } while(!bins[bin].compareAndSet(oldValue, newValue));
+        } while(!bins[bin].compareAndSet(oldValue, 0));
         return oldValue;
     }
     
     public void transferBins(Histogram hist)
     {
-        AtomicReference<Integer>[] newBins = new AtomicReference[hist.getSpan()];
-        for(int i = 0; i < newBins.length; i++)
+        int oldValue;
+        for(int i = 0; i < hist.getSpan(); i++)
         {
-            newBins[i].getAndSet(hist.getCount(i));
+            int newValue = hist.getAndClear(i);
+            do{
+                oldValue = bins[i].get();
+            } while(!bins[i].compareAndSet(oldValue, newValue));
         }
-        bins = newBins;
     }
-}
-
-interface Histogram {
-    void increment(int bin);
-    int getCount(int bin);
-    int getSpan();
-    int[] getBins();
-    int getAndClear(int bin);
-    void transferBins(Histogram hist);
 }

@@ -5,27 +5,17 @@
 //   javac -cp ~/lib/multiverse-core-0.7.0.jar TestStmHistogram.java
 //   java -cp ~/lib/multiverse-core-0.7.0.jar:. TestStmHistogram
 
-// For the Multiverse library:
-import org.multiverse.api.references.*;
-import org.multiverse.api.StmUtils;
-import static org.multiverse.api.StmUtils.*;
-
-// Multiverse locking:
-import org.multiverse.api.LockMode;
-import org.multiverse.api.Txn;
-import org.multiverse.api.callables.TxnVoidCallable;
-
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CyclicBarrier;
 
-public class TestStmHistogram {
+public class TestHistogram {
   public static void main(String[] args) {
-    countPrimeFactorsWithStmHistogram();
+    countPrimeFactorsWithHistogram(new StmHistogram(30));
+    countPrimeFactorsWithHistogram(new CasHistogram(30));
   }
 
-  private static void countPrimeFactorsWithStmHistogram() {
-    final Histogram histogram = new StmHistogram(30);
+  private static void countPrimeFactorsWithHistogram(final Histogram histogram) {
     final int range = 4_000_000;
     final int threadCount = 10, perThread = range / threadCount;
     final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
@@ -72,59 +62,3 @@ public class TestStmHistogram {
     return factorCount;
   }
 }
-
-interface Histogram {
-  void increment(int bin);
-  int getCount(int bin);
-  int getSpan();
-  int[] getBins();
-  int getAndClear(int bin);
-  void transferBins(Histogram hist);
-}
-
-class StmHistogram implements Histogram {
-  private final TxnInteger[] counts;
-
-  public StmHistogram(int span) {
-    counts = new TxnInteger[span];
-    for(int i = 0; i <span ; i++)
-    {
-      counts[i] = StmUtils.newTxnInteger(0);
-    }
-  }
-
-  public void increment(int bin) {
-    atomic(() -> counts[bin].increment());
-  }
-
-  public int getCount(int bin) {
-    return atomic(() -> { return counts[bin].get(); });
-  }
-
-  public int getSpan() {
-    return counts.length;
-  }
-
-  public int[] getBins() {
-    final int[] arr = new int[getSpan()];
-    for(int i = 0; i<getSpan(); i++)
-    {
-      final int bin = i;
-      atomic(()->arr[bin] = counts[bin].get());
-    }
-    return arr;
-  }
-
-  public int getAndClear(int bin) {
-    return counts[bin].getAndSet(0);
-  }
-
-  public void transferBins(Histogram hist) {
-    for(int i = 0; i<getSpan(); i++)
-    {
-      final int bin = i;
-      atomic(() -> counts[bin].set(hist.getAndClear(bin)));
-    }
-  }
-}
-
