@@ -11,8 +11,8 @@ import java.util.concurrent.CyclicBarrier;
 
 public class TestHistogram {
   public static void main(String[] args) {
-    countPrimeFactorsWithHistogram(new StmHistogram(30));
     countPrimeFactorsWithHistogram(new CasHistogram(30));
+    countPrimeFactorsWithHistogram(new StmHistogram(30));
   }
 
   private static void countPrimeFactorsWithHistogram(final Histogram histogram) {
@@ -26,16 +26,18 @@ public class TestHistogram {
                   to = (t+1 == threadCount) ? range : perThread * (t+1); 
         threads[t] = 
           new Thread(() -> { 
-	      try { startBarrier.await(); } catch (Exception exn) { }
-	      for (int p=from; p<to; p++) 
-		histogram.increment(countFactors(p));
-	      System.out.print("*");
-	      try { stopBarrier.await(); } catch (Exception exn) { }
-	    });
+            try { startBarrier.await(); } catch (Exception exn) { }
+            for (int p=from; p<to; p++) 
+              histogram.increment(countFactors(p));
+            System.out.print("*");
+            try { stopBarrier.await(); } catch (Exception exn) { }
+          });
         threads[t].start();
     }
     try { startBarrier.await(); } catch (Exception exn) { }
+    Timer timer = new Timer();
     try { stopBarrier.await(); } catch (Exception exn) { }
+    System.out.println("\nTime: " + timer.check());
     dump(histogram);
   }
 
@@ -61,4 +63,13 @@ public class TestHistogram {
     }
     return factorCount;
   }
+
+  private static class Timer {
+    private long start, spent = 0;
+    public Timer() { play(); }
+    public double check() { return (System.nanoTime()-start+spent)/1e9; }
+    public void pause() { spent += System.nanoTime()-start; }
+    public void play() { start = System.nanoTime(); }
+  }
 }
+
