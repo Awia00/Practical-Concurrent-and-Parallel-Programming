@@ -512,6 +512,8 @@ class SimpleRWTryLock {
       ReaderList newValue = new ReaderList(current, oldValue);
       result = holders.compareAndSet(oldValue, newValue);
     }
+    else throw new RuntimeException("Trying to lock something locked");
+
     return result;
   }
   public void readerUnlock()
@@ -520,11 +522,23 @@ class SimpleRWTryLock {
     if(holders != null && holders.get() instanceof ReaderList )
     {
       ReaderList list = (ReaderList)holders.get();
-      while(!list.isSame(current))
+      ReaderList next = list.next;
+      if(next == null)
+      {
+        if(list.isSame(current))
+        {
+          holders = null;
+        }
+        else throw new RuntimeException("Trying to unlock something");
+      }
+      while(!next.isSame(current))
       {
         list = list.next;
+        next = list.next;
       }
+      //list.next = next.next;
     }
+    else throw new RuntimeException("Trying to unlock something it has not locked");
   }
   public boolean writerTryLock() 
   {
@@ -533,6 +547,7 @@ class SimpleRWTryLock {
       final Thread current = Thread.currentThread();
       holders = new AtomicReference(new Writer(current));
     }
+    else throw new RuntimeException("Trying to lock something locked");
     return holders != null;
   }
   public void writerUnlock() 
@@ -542,6 +557,7 @@ class SimpleRWTryLock {
     {
       holders = null;
     }
+    else throw new RuntimeException("Trying to unlock something it has not locked");
   }
 
   private static abstract class Holders {
