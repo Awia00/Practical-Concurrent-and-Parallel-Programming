@@ -489,3 +489,90 @@ class MyReentrantLock {
     throw new RuntimeException("Not lock holder");
   }
 }
+
+
+class SimpleRWTryLock {
+  private AtomicReference<Holders> holders;
+  public SimpleRWTryLock()
+  {
+  }
+  
+  public boolean readerTryLock() 
+  {
+    boolean result = false;
+    final Thread current = Thread.currentThread();
+    if(holders == null)
+    {
+      holders = new AtomicReference(new ReaderList(current));
+      result = true;
+    }
+    else if(holders.get() instanceof ReaderList)
+    {
+      ReaderList oldValue = (ReaderList)holders.get();
+      ReaderList newValue = new ReaderList(current, oldValue);
+      result = holders.compareAndSet(oldValue, newValue);
+    }
+    return result;
+  }
+  public void readerUnlock()
+  {
+    final Thread current = Thread.currentThread();
+    if(holders != null && holders.get() instanceof ReaderList )
+    {
+      ReaderList list = (ReaderList)holders.get();
+      while(!list.isSame(current))
+      {
+        list = list.next;
+      }
+    }
+  }
+  public boolean writerTryLock() 
+  {
+    if(holders == null)
+    {
+      final Thread current = Thread.currentThread();
+      holders = new AtomicReference(new Writer(current));
+    }
+    return holders != null;
+  }
+  public void writerUnlock() 
+  {
+    final Thread current = Thread.currentThread();
+    if(holders != null && holders.get() instanceof Writer && holders.get().isSame(current))
+    {
+      holders = null;
+    }
+  }
+
+  private static abstract class Holders {
+    protected final Thread thread;
+    public Holders(Thread t)
+    {
+      thread = t;
+    }
+    public boolean isSame(Thread t)
+    {
+      return t==thread;
+    }
+   }
+
+  private static class ReaderList extends Holders {
+    private final ReaderList next;
+    public ReaderList(Thread t)
+    {
+      super(t);
+      next = null;
+    }
+    public ReaderList(Thread t, ReaderList current)
+    {
+      super(t);
+      next = current;
+    }
+  }
+  private static class Writer extends Holders {
+    public Writer(Thread t){
+      super(t);
+    }
+
+  }
+}
