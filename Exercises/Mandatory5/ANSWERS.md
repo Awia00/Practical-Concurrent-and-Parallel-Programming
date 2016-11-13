@@ -31,12 +31,16 @@ This might be the case if there is mostly reads since this is where CAS shines. 
 
 ## Exercise 10.2
 ### 1)
+Solved. See src/TestCasLock near the bottom
 
 ### 2)
+Solved. See src/TestCasLock near the bottom
 
 ### 3)
+Solved. See src/TestCasLock near the bottom
 
 ### 4)
+Solved. See src/TestCasLock near the bottom
 
 ### 5)
 
