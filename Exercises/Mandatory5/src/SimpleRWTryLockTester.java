@@ -102,6 +102,7 @@ public class SimpleRWTryLockTester
                 }
               }
             } catch (Exception exn) { 
+              exn.printStackTrace();
               assert false; 
             }
 
@@ -146,7 +147,7 @@ class SimpleRWTryLock {
   {
     final Thread current = Thread.currentThread();
     Holders oldValue = holders.get();
-    if(oldValue instanceof ReaderList )
+    if(oldValue instanceof ReaderList && ((ReaderList)oldValue).contains(current))
     {
       ReaderList newValue = ((ReaderList)oldValue).remove(current);
       holders.compareAndSet(oldValue, newValue);
@@ -200,11 +201,30 @@ class SimpleRWTryLock {
       next = current;
     }
 
+    public boolean contains(Thread t)
+    {
+      if(thread == t)
+      {
+        return true;
+      }
+      else if(next == null)
+      {
+        return false;
+      }
+      else{
+        return next.contains(t);
+      }
+    }
+
     public ReaderList remove(Thread t)
     {
       if(thread == t)
       {
         return next;
+      }
+      else if(next == null)
+      {
+        return this;
       }
       else{
         return new ReaderList(thread, next.remove(thread));
