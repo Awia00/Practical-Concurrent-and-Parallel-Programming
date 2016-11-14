@@ -1,13 +1,15 @@
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CyclicBarrier;
+import java.util.Random;
 
 public class SimpleRWTryLockTester
 {
   public static void main(String[] args)
   {
     sequentialTest(new SimpleRWTryLock());
-    concurrencyTest(new SimpleRWTryLock(), 16, 1_000_000);
+    concurrencyTest(new SimpleRWTryLock(), 16, 100_000);
   }
 
   public static void sequentialTest(SimpleRWTryLock lock)
@@ -18,7 +20,7 @@ public class SimpleRWTryLockTester
     assert lock.readerTryLock();
     assert lock.readerTryLock();
     lock.readerUnlock();
-    lock.readerUnlock();
+    //lock.readerUnlock();
     assert lock.writerTryLock();
     lock.writerUnlock();
     assert lock.readerTryLock();
@@ -80,33 +82,47 @@ public class SimpleRWTryLockTester
     final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
       stopBarrier = startBarrier;
     final Thread[] threads = new Thread[threadCount];
+    AtomicInteger totalSum = new AtomicInteger(0);
+    AtomicInteger readerSum = new AtomicInteger(0);
+    AtomicInteger writerSum = new AtomicInteger(0);
     for (int t=0; t<threadCount; t++) {
         threads[t] = 
           new Thread(() -> { 
+            // Random random = new Random();
             try { startBarrier.await(); } catch (Exception exn) { }
-            
+            int sum =0;
+            int reads =0;
+            int writes =0;
             try {
-              for(int i = 0; i<amt; )
+              
+              for(int i = 0; i<amt; sum+=2)
               {
-                if(lock.readerTryLock())
-                {
-                  // do some work
+                // if(random.nextInt(3)==2)
+                  if(lock.readerTryLock())
+                  {
                   i++;
+                  reads++;
+                  //Thread.yield();
                   lock.readerUnlock();
-                }
-                if(lock.writerTryLock())
-                {
-                  // do some work
-                  i++;
-                  lock.writerUnlock();
-                }
+                // } else {
+                  if(lock.writerTryLock())
+                  {
+                    i++;
+                    writes++;
+                    //Thread.yield();
+                    lock.writerUnlock();
+                  }
+                // } 
               }
-            } catch (Exception exn) { 
+            } catch (Exception exn) {
               exn.printStackTrace();
               assert false; 
             }
-
+            totalSum.getAndAdd(sum);
+            readerSum.getAndAdd(reads);
+            writerSum.getAndAdd(writes);
             try { stopBarrier.await(); } catch (Exception exn) { }
+            
           });
         threads[t].start();
     }
@@ -114,6 +130,10 @@ public class SimpleRWTryLockTester
     Timer timer = new Timer();
     try { stopBarrier.await(); } catch (Exception exn) { }
     System.out.println("\nTime: " + timer.check());
+    System.out.println("Total tries pr lock: " + totalSum.get()/(threadCount*amt));
+    System.out.println("reads ratio: " + ((double)readerSum.get())/(threadCount*amt)*100);
+    System.out.println("writes ratio: " + ((double)writerSum.get())/(threadCount*amt)*100);
+
   }
 }
 
@@ -122,6 +142,11 @@ class SimpleRWTryLock {
   public SimpleRWTryLock()
   {
     holders = new AtomicReference(null);
+  }
+
+  public void print()
+  {
+    holders.get().print();
   }
   
   public boolean readerTryLock() 
@@ -186,6 +211,7 @@ class SimpleRWTryLock {
     {
       return t==thread;
     }
+    abstract void print();
    }
 
   private static class ReaderList extends Holders {
@@ -198,7 +224,15 @@ class SimpleRWTryLock {
     public ReaderList(Thread t, ReaderList current)
     {
       super(t);
-      next = current;
+      if(current != null)
+        next = new ReaderList(current.thread, current.next);
+      else
+        next = null;
+    }
+    public void print()
+    {
+      System.out.println(thread + "");
+      next.print();
     }
 
     public boolean contains(Thread t)
@@ -234,6 +268,10 @@ class SimpleRWTryLock {
   private static class Writer extends Holders {
     public Writer(Thread t){
       super(t);
+    }
+    public void print()
+    {
+
     }
 
   }
