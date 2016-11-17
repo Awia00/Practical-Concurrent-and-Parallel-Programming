@@ -31,21 +31,27 @@ This might be the case if there is mostly reads since this is where CAS shines. 
 
 ## Exercise 10.2
 ### 1)
-Solved. See src/TestCasLock near the bottom
+Solved. See src/SimpleRWTryLockTester.java
 
 ### 2)
-Solved. See src/TestCasLock near the bottom
+Solved. See src/SimpleRWTryLockTester.java
 
 ### 3)
-Solved. See src/TestCasLock near the bottom
+Solved. See src/SimpleRWTryLockTester.java
 
 ### 4)
-Solved. See src/TestCasLock near the bottom
+Solved. See src/SimpleRWTryLockTester.java
 
 ### 5)
+Solved. See src/SimpleRWTryLockTester.java
+To run it use the -ea flag
 
 ### 6)
+Solved. See src/SimpleRWTryLockTester.java
+To run it use the -ea flag
 
+One migh have created another kind of test, based on possible situations instead of stress testing with a lot of overlappings. Such like acquiring a lock on one thread, then try to do every operation with the other thread and vice versa.
+I cannot be completely certain that all these situations have been tried, but i know that atleast every thread gets to a situation where it cannot acquire a lock.
 
 ## Exercise 10.3
 ### 1)

@@ -9,7 +9,8 @@ public class SimpleRWTryLockTester
   public static void main(String[] args)
   {
     sequentialTest(new SimpleRWTryLock());
-    concurrencyTest(new SimpleRWTryLock(), 16, 100_000);
+    concurrencyTestReadAndWrite(new SimpleRWTryLock(), 2, 100_000);
+    concurrencyTestWrite(new SimpleRWTryLock(), 2, 100_000);
   }
 
   public static void sequentialTest(SimpleRWTryLock lock)
@@ -20,7 +21,7 @@ public class SimpleRWTryLockTester
     assert lock.readerTryLock();
     assert lock.readerTryLock();
     lock.readerUnlock();
-    //lock.readerUnlock();
+    lock.readerUnlock();
     assert lock.writerTryLock();
     lock.writerUnlock();
     assert lock.readerTryLock();
@@ -77,8 +78,9 @@ public class SimpleRWTryLockTester
     }
   }
 
-  public static void concurrencyTest(SimpleRWTryLock lock, final int threadCount, final int amt)
+  public static void concurrencyTestReadAndWrite(SimpleRWTryLock lock, final int threadCount, final int amt)
   {
+    System.out.println("\nStarting concurrencyTestReadAndWrite. Threads: " + threadCount + " rounds: " + amt);
     final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
       stopBarrier = startBarrier;
     final Thread[] threads = new Thread[threadCount];
@@ -102,14 +104,14 @@ public class SimpleRWTryLockTester
                   {
                   i++;
                   reads++;
-                  //Thread.yield();
+                  Thread.yield();
                   lock.readerUnlock();
-                // } else {
+                  } //else {
                   if(lock.writerTryLock())
                   {
                     i++;
                     writes++;
-                    //Thread.yield();
+                    Thread.yield();
                     lock.writerUnlock();
                   }
                 // } 
@@ -133,6 +135,49 @@ public class SimpleRWTryLockTester
     System.out.println("Total tries pr lock: " + totalSum.get()/(threadCount*amt));
     System.out.println("reads ratio: " + ((double)readerSum.get())/(threadCount*amt)*100);
     System.out.println("writes ratio: " + ((double)writerSum.get())/(threadCount*amt)*100);
+  }
+
+  public static void concurrencyTestWrite(SimpleRWTryLock lock, final int threadCount, final int amt)
+  {
+    System.out.println("\nStarting concurrencyTestWrite. Threads: " + threadCount + " rounds: " + amt);
+    final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
+      stopBarrier = startBarrier;
+    final Thread[] threads = new Thread[threadCount];
+    AtomicInteger totalSum = new AtomicInteger(0);
+    for (int t=0; t<threadCount; t++) {
+        threads[t] = 
+          new Thread(() -> { 
+            // Random random = new Random();
+            try { startBarrier.await(); } catch (Exception exn) { }
+            int sum =0;
+            int reads =0;
+            int writes =0;
+            try {
+              
+              for(int i = 0; i<amt; sum+=2)
+              {
+                  if(lock.writerTryLock())
+                  {
+                    i++;
+                    Thread.yield();
+                    lock.writerUnlock();
+                  }
+              }
+            } catch (Exception exn) {
+              exn.printStackTrace();
+              assert false; 
+            }
+            totalSum.getAndAdd(sum);
+            try { stopBarrier.await(); } catch (Exception exn) { }
+            
+          });
+        threads[t].start();
+    }
+    try { startBarrier.await(); } catch (Exception exn) { }
+    Timer timer = new Timer();
+    try { stopBarrier.await(); } catch (Exception exn) { }
+    System.out.println("\nTime: " + timer.check());
+    System.out.println("Total tries pr lock: " + totalSum.get()/(threadCount*amt));
 
   }
 }
