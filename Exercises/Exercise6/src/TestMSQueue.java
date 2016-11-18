@@ -7,8 +7,41 @@
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
-public class TestMSQueue {
-  public static void main(String[] args) {
+import java.util.Random;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class TestMSQueue extends Tests{
+  public static void main(String[] args) throws Exception {
+    sequentialTest(new MSQueue());
+    parallelTest(new MSQueue());
+  }
+
+
+  private static void sequentialTest(UnboundedQueue<Integer> bq) throws Exception {
+    System.out.printf("%nSequential test: %s", bq.getClass());    
+    // assertTrue(bq.isEmpty());
+    // assertTrue(!bq.isFull());
+    bq.enqueue(7); bq.enqueue(9); bq.enqueue(13); 
+    //assertTrue(!bq.isEmpty());
+    //assertTrue(bq.isFull());
+    assertEquals(bq.dequeue(), 7);
+    assertEquals(bq.dequeue(), 9);
+    assertEquals(bq.dequeue(), 13);
+    // assertTrue(bq.isEmpty());
+    // assertTrue(!bq.isFull());
+    System.out.println("... passed");
+  }
+
+  private static void parallelTest(UnboundedQueue<Integer> bq) throws Exception {
+    System.out.printf("%nParallel test: %s", bq.getClass()); 
+    final ExecutorService pool = Executors.newCachedThreadPool();
+    new PutTakeTest(bq, 17, 100000).test(pool); 
+    pool.shutdown();
+    System.out.println("... passed");      
   }
 }
 
@@ -195,6 +228,102 @@ class MSQueueRefl<T> implements UnboundedQueue<T> {
     public Node(T item, Node<T> next) {
       this.item = item;
       this.next = next;
+    }
+  }
+}
+
+
+
+/**
+ * Producer-consumer test program for BoundedQueue
+ *
+ * @author Brian Goetz and Tim Peierls; some modifications by
+ * sestoft@itu.dk
+ */
+
+class Tests {
+  public static void assertEquals(int x, int y) throws Exception {
+    if (x != y) 
+      throw new Exception(String.format("ERROR: %d not equal to %d%n", x, y));
+  }
+
+  public static void assertTrue(boolean b) throws Exception {
+    if (!b) 
+      throw new Exception(String.format("ERROR: assertTrue"));
+  }
+}
+
+class PutTakeTest extends Tests {
+  // We could use one CyclicBarrier for both starting and stopping,
+  // precisely because it is cyclic, but the code becomes clearer by
+  // separating them:
+  protected CyclicBarrier startBarrier, stopBarrier;
+  protected final UnboundedQueue<Integer> bq;
+  protected final int nTrials, nPairs;
+  protected final AtomicInteger putSum = new AtomicInteger(0);
+  protected final AtomicInteger takeSum = new AtomicInteger(0);
+
+  public PutTakeTest(UnboundedQueue<Integer> bq, int npairs, int ntrials) {
+    this.bq = bq;
+    this.nTrials = ntrials;
+    this.nPairs = npairs;
+    this.startBarrier = new CyclicBarrier(npairs * 2 + 1);
+    this.stopBarrier = new CyclicBarrier(npairs * 2 + 1);
+  }
+  
+  void test(ExecutorService pool) {
+    try {
+      for (int i = 0; i < nPairs; i++) {
+        pool.execute(new Producer());
+        pool.execute(new Consumer());
+      }      
+      startBarrier.await(); // wait for all threads to be ready
+      stopBarrier.await();  // wait for all threads to finish      
+      //assertTrue(bq.isEmpty());
+      assertEquals(putSum.get(), takeSum.get());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  class Producer implements Runnable {
+    public void run() {
+      try {
+        Random random = new Random();
+        int sum = 0;
+        startBarrier.await();
+        for (int i = nTrials; i > 0; --i) {
+          int item = random.nextInt();
+          bq.enqueue(item);
+          sum += item;
+        }
+        putSum.getAndAdd(sum);
+        stopBarrier.await();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+  
+  class Consumer implements Runnable {
+    public void run() {
+      try {
+        startBarrier.await();
+        int sum = 0;
+        for (int i = nTrials; i > 0; --i) {
+          Integer item = null;
+          while(item == null)
+          {
+            item = bq.dequeue();
+          }
+          sum += item;
+          
+        }
+        takeSum.getAndAdd(sum);
+        stopBarrier.await();
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 }
