@@ -55,3 +55,7 @@ I cannot be completely certain that all these situations have been tried, but i 
 
 ## Exercise 10.3
 ### 1)
+The raw results are available in results/10.3-results.txt
+The graph is available in results/10.3-graph.png
+The WrappedTLRandom lock seems to be the fastest on my machine but are closely followed by the TLLocking random and the TLCasRandom. The CasRandom is ultimately the slowest of them all. The 3 fast implementations are quite constant as the number of threads grow but CasRandom is scaling really badly when the amount of threads increase. This makes sense since each thread might have to rollback its work and try again over and over due to the nature of compareAndSet. 
+The one which is ultimately the fastest is also the one which has the lowest running time with most threads.
