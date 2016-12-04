@@ -2,10 +2,12 @@ package ABC;
 
 import akka.actor.ActorRef;
 
+import java.io.Serializable;
+
 /**
  * Created by AndersWindSteffensen on 2016-12-04.
  */
-public class StartMessage {
+public class StartMessage implements Serializable {
     private final ActorRef bank, from, to;
 
     public StartMessage(ActorRef bank, ActorRef from, ActorRef to) {

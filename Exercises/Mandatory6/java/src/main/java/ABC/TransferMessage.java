@@ -2,10 +2,12 @@ package ABC;
 
 import akka.actor.ActorRef;
 
+import java.io.Serializable;
+
 /**
  * Created by AndersWindSteffensen on 2016-12-04.
  */
-public class TransferMessage {
+public class TransferMessage implements Serializable {
     private final ActorRef from, to;
     private final int amount;
 
