@@ -15,14 +15,14 @@ public class ClerkActor extends UntypedActor{
     {
         for(int i = 0; i<number; i++)
         {
-            bank.tell(new TransferMessage(from, to, random.nextInt(100)), getSelf());
+            bank.tell(new TransferMessage(random.nextInt(100), from, to), getSelf());
         }
     }
 
     public void onReceive(Object message) throws Throwable {
         if(message instanceof StartMessage)
         {
-            random = new Random(System.currentTimeMillis());
+            random = new Random();
             StartMessage start = (StartMessage)message;
             nTransfers(100, start.getBank(), start.getFrom(), start.getTo());
         }

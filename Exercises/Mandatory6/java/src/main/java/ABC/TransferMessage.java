@@ -11,7 +11,7 @@ public class TransferMessage implements Serializable {
     private final ActorRef from, to;
     private final int amount;
 
-    public TransferMessage(ActorRef from, ActorRef to, int amount) {
+    public TransferMessage(int amount, ActorRef from, ActorRef to) {
         this.from = from;
         this.to = to;
         this.amount = amount;
