@@ -20,7 +20,7 @@ public class Quicksorts {
   public static void main(String[] args) {
     sequentialRecursive();
     singleQueueSingleThread();
-    //    singleQueueMultiThread(8);
+    singleQueueMultiThread(8);
     //    multiQueueMultiThread(8);
     //    multiQueueMultiThreadCL(8);
   }
@@ -95,12 +95,50 @@ public class Quicksorts {
 
   private static void singleQueueMultiThread(final int threadCount) {
     int[] arr = IntArrayUtil.randomIntArray(size);
-    // To do: ... create queue, then call sqmtWorkers(queue, threadCount)
+    SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
+    queue.push(new SortTask(arr, 0, arr.length-1));
+    sqmtWorkers(queue, threadCount);
     System.out.println(IntArrayUtil.isSorted(arr));
   }
 
   private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
-    // To do: ... create and start threads and so on ...
+    final Thread[] threads = new Thread[threadCount];
+    final LongAdder amt = new LongAdder(); amt.add(1);
+    for(int t = 0; t<threadCount; t++)
+    {
+      threads[t] = new Thread(() ->
+      {
+        SortTask task;
+        while(true)
+        {
+          while (null != (task = queue.pop())) {
+            amt.add(-1);
+            final int[] arr = task.arr;
+            final int a = task.a, b = task.b;
+            if (a < b) { 
+              int i = a, j = b;
+              int x = arr[(i+j) / 2];
+              do {
+                while (arr[i] < x) i++;
+                while (arr[j] > x) j--;
+                if (i <= j) {
+                  swap(arr, i, j);
+                  i++; j--;
+                }                             
+              } while (i <= j); 
+              queue.push(new SortTask(arr, a, j));
+              amt.add(1);
+              queue.push(new SortTask(arr, i, b));
+              amt.add(1);
+            }
+          }
+          if(amt.sum() != 0)
+            Thread.yield();
+          else 
+            return;
+        }
+      });
+    }
   }
 
   // Tries to get a sorting task.  If task queue is empty but some
@@ -207,34 +245,38 @@ class SimpleDeque<T> implements Deque<T> {
   private Object bottomLock = new Object();
   private Object topLock = new Object();
   public void push(T item) { // at bottom
-    final long size = bottom - top;
-    if (size == items.length) 
-      throw new RuntimeException("queue overflow");
     synchronized(bottomLock) {
+      final long size = bottom - top;
+      if (size == items.length) 
+        throw new RuntimeException("queue overflow");
       items[index(bottom++, items.length)] = item;
     }
   }
 
   
   public T pop() { // from bottom
-    final long afterSize = bottom - 1 - top;
-    if (afterSize < 0) 
-      return null;
-    else
-      synchronized(bottomLock) {
-        return items[index(--bottom, items.length)];
+    synchronized(bottomLock) {
+      synchronized(topLock) {
+        final long afterSize = bottom - 1 - top;
+        if (afterSize < 0) 
+          return null;
+        else
+          return items[index(--bottom, items.length)];
       }
+    }
   }
 
   
   public T steal() { // from top
-    final long size = bottom - top;
-    if (size <= 0) 
-      return null;
-    else
+    synchronized(bottomLock) {
       synchronized(topLock) {
-        return items[index(top++, items.length)];
+        final long size = bottom - top;
+        if (size <= 0) 
+          return null;
+        else
+          return items[index(top++, items.length)];
       }
+    }
   }
 }
 
