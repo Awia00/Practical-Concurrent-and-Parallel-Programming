@@ -204,27 +204,37 @@ class SimpleDeque<T> implements Deque<T> {
     return (int)(i % (long)n);
   }
 
+  private Object bottomLock = new Object();
+  private Object topLock = new Object();
   public void push(T item) { // at bottom
     final long size = bottom - top;
     if (size == items.length) 
       throw new RuntimeException("queue overflow");
-    items[index(bottom++, items.length)] = item;
+    synchronized(bottomLock) {
+      items[index(bottom++, items.length)] = item;
+    }
   }
 
+  
   public T pop() { // from bottom
     final long afterSize = bottom - 1 - top;
     if (afterSize < 0) 
       return null;
     else
-      return items[index(--bottom, items.length)];
+      synchronized(bottomLock) {
+        return items[index(--bottom, items.length)];
+      }
   }
 
+  
   public T steal() { // from top
     final long size = bottom - top;
     if (size <= 0) 
       return null;
     else
-      return items[index(top++, items.length)];
+      synchronized(topLock) {
+        return items[index(top++, items.length)];
+      }
   }
 }
 
