@@ -109,35 +109,39 @@ public class Quicksorts {
       threads[t] = new Thread(() ->
       {
         SortTask task;
-        while(true)
-        {
-          while (null != (task = queue.pop())) {
-            amt.add(-1);
-            final int[] arr = task.arr;
-            final int a = task.a, b = task.b;
-            if (a < b) { 
-              int i = a, j = b;
-              int x = arr[(i+j) / 2];
-              do {
-                while (arr[i] < x) i++;
-                while (arr[j] > x) j--;
-                if (i <= j) {
-                  swap(arr, i, j);
-                  i++; j--;
-                }                             
-              } while (i <= j); 
-              queue.push(new SortTask(arr, a, j));
-              amt.add(1);
-              queue.push(new SortTask(arr, i, b));
-              amt.add(1);
-            }
+        while (null != (task = getTask(queue, amt))) {
+          amt.add(-1);
+          final int[] arr = task.arr;
+          final int a = task.a, b = task.b;
+          if (a < b) { 
+            int i = a, j = b;
+            int x = arr[(i+j) / 2];
+            do {
+              while (arr[i] < x) i++;
+              while (arr[j] > x) j--;
+              if (i <= j) {
+                swap(arr, i, j);
+                i++; j--;
+              }                             
+            } while (i <= j); 
+            queue.push(new SortTask(arr, a, j));
+            amt.add(1);
+            queue.push(new SortTask(arr, i, b));
+            amt.add(1);
           }
-          if(amt.sum() != 0)
-            Thread.yield();
-          else 
-            return;
         }
       });
+      threads[t].start();
+    }
+    for(int t = 0; t<threadCount; t++)
+    {
+      try{
+        threads[t].join();
+      } catch(InterruptedException e)
+      {
+        System.out.println(e);
+      }
+      
     }
   }
 
