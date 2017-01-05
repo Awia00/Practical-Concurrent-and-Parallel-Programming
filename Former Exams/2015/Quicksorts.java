@@ -18,16 +18,18 @@ import java.util.concurrent.CyclicBarrier;
 
 
 public class Quicksorts {
-  final static int size = 1_000_000; // Number of integers to sort
+  final static int size = 30_000_000; // Number of integers to sort
 
   public static void main(String[] args) {
-    sequentialRecursive();
-    singleQueueSingleThread();
-    singleQueueMultiThread(8);
-    //    multiQueueMultiThread(8);
+    //sequentialRecursive();
+    //singleQueueSingleThread();
+    //for(int i = 1; i<=16; i++)
+      //singleQueueMultiThread(i);
+    for(int i = 1; i<=16; i++)
+        multiQueueMultiThread(i);
     //    multiQueueMultiThreadCL(8);
 
-    SimpleDequeTests.runAllTests();
+    //SimpleDequeTests.runAllTests();
   }
 
   // ----------------------------------------------------------------------
@@ -108,11 +110,14 @@ public class Quicksorts {
 
   private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
     final Thread[] threads = new Thread[threadCount];
+    final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
+      stopBarrier = startBarrier;
     final LongAdder amt = new LongAdder(); amt.add(1);
     for(int t = 0; t<threadCount; t++)
     {
       threads[t] = new Thread(() ->
       {
+        try { startBarrier.await(); } catch (Exception exn) { }
         SortTask task;
         while (null != (task = getTask(queue, amt))) {
           amt.add(-1);
@@ -135,18 +140,14 @@ public class Quicksorts {
             amt.add(1);
           }
         }
+        try { stopBarrier.await(); } catch (Exception exn) { }
       });
       threads[t].start();
     }
-    for(int t = 0; t<threadCount; t++)
-    {
-      try{
-        threads[t].join();
-      } catch(InterruptedException e)
-      {
-        System.out.println(e);
-      }
-    }
+    try { startBarrier.await(); } catch (Exception exn) { }
+    Timer timer = new Timer();
+    try { stopBarrier.await(); } catch (Exception exn) { }
+    System.out.println(threadCount + " cores:\t" + "Time:\t" + timer.check());
   }
 
   // Tries to get a sorting task.  If task queue is empty but some
@@ -170,6 +171,11 @@ public class Quicksorts {
   private static void multiQueueMultiThread(final int threadCount) {
     int[] arr = IntArrayUtil.randomIntArray(size);
     // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
+    SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
+    for(int i = 0; i<threadCount; i++)
+      queues[i] = new SimpleDeque<SortTask>(100000);
+    queues[0].push(new SortTask(arr, 0, arr.length-1));
+    mqmtWorkers(queues, threadCount);
     System.out.println(IntArrayUtil.isSorted(arr));
   }
 
@@ -182,7 +188,46 @@ public class Quicksorts {
   }
 
   private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
-    // To do: ... create and start threads and so on ...
+    final Thread[] threads = new Thread[threadCount];
+    final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
+      stopBarrier = startBarrier;
+    final LongAdder amt = new LongAdder(); amt.add(1);
+    for(int t = 0; t<threadCount; t++)
+    {
+      final int myNumber = t;
+      threads[t] = new Thread(() ->
+      {
+        try { startBarrier.await(); } catch (Exception exn) { }
+        SortTask task;
+        while (null != (task = getTask(myNumber, queues, amt))) {
+          amt.add(-1);
+          final int[] arr = task.arr;
+          final int a = task.a, b = task.b;
+          if (a < b) { 
+            int i = a, j = b;
+            int x = arr[(i+j) / 2];
+            do {
+              while (arr[i] < x) i++;
+              while (arr[j] > x) j--;
+              if (i <= j) {
+                swap(arr, i, j);
+                i++; j--;
+              }                             
+            } while (i <= j); 
+            queues[myNumber].push(new SortTask(arr, a, j));
+            amt.add(1);
+            queues[myNumber].push(new SortTask(arr, i, b));
+            amt.add(1);
+          }
+        }
+        try { stopBarrier.await(); } catch (Exception exn) { }
+      });
+      threads[t].start();
+    }
+    try { startBarrier.await(); } catch (Exception exn) { }
+    Timer timer = new Timer();
+    try { stopBarrier.await(); } catch (Exception exn) { }
+    System.out.println(threadCount + " cores:\t" + "Time:\t" + timer.check());
   }
 
   // Tries to get a sorting task.  If task queue is empty, repeatedly
@@ -197,7 +242,15 @@ public class Quicksorts {
       return task;
     else {
       do {
-        // To do here: ... try to steal from other tasks' queues ...
+        for(int i = 0; i<queues.length; i++)
+        {
+          if(i != myNumber)
+          {
+            SortTask element = queues[i].steal();
+            if(element != null)
+              return element;
+          }
+        }
         Thread.yield();
       } while (ongoing.longValue() > 0);
       return null;
@@ -342,6 +395,7 @@ class SimpleDequeTests {
     }
     try { startBarrier.await(); } catch (Exception exn) { }
     try { stopBarrier.await(); } catch (Exception exn) { }
+    
 
     assert queue.pop() == null;
     assert (expectedSum.sum() == sum.sum());
@@ -386,26 +440,22 @@ class SimpleDeque<T> implements Deque<T> {
   
   public T pop() { // from bottom
     synchronized(bottomLock) {
-      synchronized(topLock) {
         final long afterSize = bottom - 1 - top;
         if (afterSize < 0) 
           return null;
         else
           return items[index(--bottom, items.length)];
-      }
     }
   }
 
   
   public T steal() { // from top
     synchronized(bottomLock) {
-      synchronized(topLock) {
-        final long size = bottom - top;
-        if (size <= 0) 
-          return null;
-        else
-          return items[index(top++, items.length)];
-      }
+      final long size = bottom - top;
+      if (size <= 0) 
+        return null;
+      else
+        return items[index(top++, items.length)];
     }
   }
 }
@@ -509,4 +559,12 @@ class IntArrayUtil {
         return false;
     return true;
   }
+}
+
+class Timer {
+    private long start, spent = 0;
+    public Timer() { play(); }
+    public double check() { return (System.nanoTime()-start+spent)/1e9; }
+    public void pause() { spent += System.nanoTime()-start; }
+    public void play() { start = System.nanoTime(); }
 }

@@ -21,3 +21,23 @@ It is safe since it only reads values(which are final), except for the one place
 
 
 ## Question 4
+
+## Question 5
+
+1 cores:        Time:   5.022461
+true
+2 cores:        Time:   4.885933
+true
+3 cores:        Time:   4.905063
+true
+4 cores:        Time:   4.903342
+true
+5 cores:        Time:   4.916938
+true
+6 cores:        Time:   4.893607
+true
+7 cores:        Time:   4.804173
+true
+8 cores:        Time:   4.816813
+true
+9 cores:        Time:   4.812790
