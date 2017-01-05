@@ -10,9 +10,12 @@
 // D: multi-queue multi-threaded with thread-local lock-based queues and stealing
 // E: as D but with thread-local lock-free queues and stealing
 
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.CyclicBarrier;
+
 
 public class Quicksorts {
   final static int size = 1_000_000; // Number of integers to sort
@@ -23,6 +26,8 @@ public class Quicksorts {
     singleQueueMultiThread(8);
     //    multiQueueMultiThread(8);
     //    multiQueueMultiThreadCL(8);
+
+    SimpleDequeTests.runAllTests();
   }
 
   // ----------------------------------------------------------------------
@@ -141,7 +146,6 @@ public class Quicksorts {
       {
         System.out.println(e);
       }
-      
     }
   }
 
@@ -220,6 +224,128 @@ interface Deque<T> {
   void push(T item);    // at bottom
   T pop();              // from bottom
   T steal();            // from top
+}
+
+class SimpleDequeTests {
+  public static void runAllTests()
+  {
+    runSequentialTest(new SimpleDeque<Integer>(5), 5);
+    runConcurrencyTest(new SimpleDeque<Integer>(1_000_000), 1_000_000, 8);
+  }
+
+  private static void runSequentialTest(Deque<Integer> queue, int size)
+  {
+    queue.push(1);
+    assert queue.pop() == 1;
+    assert queue.pop() == null;
+    queue.push(2);
+    queue.push(3);
+    assert queue.pop() == 3;
+    assert queue.pop() == 2;
+    assert queue.pop() == null;
+
+
+    queue.push(1);
+    assert queue.steal() == 1;
+    assert queue.steal() == null;
+    queue.push(2);
+    queue.push(3);
+    assert queue.steal() == 2;
+    assert queue.steal() == 3;
+    assert queue.steal() == null;
+
+    queue.push(1);
+    queue.push(2);
+    queue.push(3);
+    queue.push(4);
+    assert queue.steal() == 1;
+    assert queue.pop() == 4;
+    assert queue.pop() == 3;
+    assert queue.steal() == 2;
+    assert queue.pop() == null;
+    assert queue.steal() == null;
+
+    for(int i = 0; i < size; i++)
+    {
+      queue.push(i);
+    }
+    try{
+      queue.push(42);
+      // this should fail. therefore the assert should not.
+      assert false;
+    } catch(RuntimeException e)
+    {
+      
+    }
+  }
+
+  private static void runConcurrencyTest(final Deque<Integer> queue, int size, int threadCount)
+  {
+    final Thread[] threads = new Thread[threadCount];
+    final int numberOfElements = size/threadCount-1;
+    final LongAdder expectedSum = new LongAdder();
+    final LongAdder sum = new LongAdder();
+    final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
+      stopBarrier = startBarrier;
+    for(int t = 0; t<threadCount; t++)
+    {
+      threads[t] = new Thread(() -> {
+        final Random r = new Random();
+        int amtAdded = 0, amtRemoved = 0, foundSum = 0, pushedSum = 0;
+        try { startBarrier.await(); } catch (Exception exn) { }
+        while(amtAdded != numberOfElements || amtRemoved != numberOfElements)
+        {
+          int testCase = r.nextInt(4); // double as many pushes as steal and pop independently
+          switch(testCase)
+          {
+            case 0: {
+              if(amtRemoved != numberOfElements)
+              {
+                Integer result = queue.steal();
+                if(result != null)
+                {
+                  foundSum += result;
+                  amtRemoved++;
+                }
+                break;
+              }
+            }
+            case 1: {
+              if(amtRemoved != numberOfElements)
+              {
+                Integer result = queue.pop();
+                if(result != null)
+                {
+                  foundSum += result;
+                  amtRemoved++;
+                }
+                break;
+              }
+            }
+            default: { // push stuff
+              if(amtAdded != numberOfElements)
+              {
+                int value = r.nextInt(1000);
+                queue.push(value);
+                pushedSum += value;
+                amtAdded++;
+                break;
+              }
+            }
+          }
+        }
+        expectedSum.add(pushedSum);
+        sum.add(foundSum);
+        try { stopBarrier.await(); } catch (Exception exn) { }
+      });
+      threads[t].start();
+    }
+    try { startBarrier.await(); } catch (Exception exn) { }
+    try { stopBarrier.await(); } catch (Exception exn) { }
+
+    assert queue.pop() == null;
+    assert (expectedSum.sum() == sum.sum());
+  }
 }
 
 class SimpleDeque<T> implements Deque<T> {

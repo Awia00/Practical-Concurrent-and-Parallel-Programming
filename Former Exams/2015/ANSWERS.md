@@ -16,3 +16,8 @@ Sorttask is threadsafe for the variables a and b. These are primitive types and 
 
 
 ## Question 3
+It sorts the array.
+It is safe since it only reads values(which are final), except for the one place where it swaps to values in the array. This could create race conditions if not for the fact that only one thread will work on that part of the array at a time, since the only other sortTasks that could exist all have different a and b values that do not overlap. Furthermore I already argued that the queue was threadsafe and therefore it does not pose any threat.
+
+
+## Question 4
