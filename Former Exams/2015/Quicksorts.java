@@ -23,13 +23,14 @@ public class Quicksorts {
   public static void main(String[] args) {
     //sequentialRecursive();
     //singleQueueSingleThread();
-    //for(int i = 1; i<=16; i++)
-      //singleQueueMultiThread(i);
-    for(int i = 1; i<=16; i++)
-        multiQueueMultiThread(i);
-    //    multiQueueMultiThreadCL(8);
+    // for(int i = 1; i<=16; i++)
+    //   singleQueueMultiThread(i);
+    // for(int i = 1; i<=16; i++)
+    //   multiQueueMultiThread(i);
+    // for(int i = 1; i<=16; i++)
+    //  multiQueueMultiThreadCL(i);
 
-    //SimpleDequeTests.runAllTests();
+    SimpleDequeTests.runAllTests();
   }
 
   // ----------------------------------------------------------------------
@@ -173,7 +174,7 @@ public class Quicksorts {
     // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
     SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
     for(int i = 0; i<threadCount; i++)
-      queues[i] = new SimpleDeque<SortTask>(100000);
+      queues[i] = new SimpleDeque<SortTask>(1000);
     queues[0].push(new SortTask(arr, 0, arr.length-1));
     mqmtWorkers(queues, threadCount);
     System.out.println(IntArrayUtil.isSorted(arr));
@@ -183,7 +184,11 @@ public class Quicksorts {
 
   private static void multiQueueMultiThreadCL(final int threadCount) {
     int[] arr = IntArrayUtil.randomIntArray(size);
-    // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
+    Deque<SortTask>[] queues = new ChaseLevDeque[threadCount];
+    for(int i = 0; i<threadCount; i++)
+      queues[i] = new ChaseLevDeque<SortTask>(1000);
+    queues[0].push(new SortTask(arr, 0, arr.length-1));
+    mqmtWorkers(queues, threadCount);
     System.out.println(IntArrayUtil.isSorted(arr));
   }
 
@@ -284,6 +289,9 @@ class SimpleDequeTests {
   {
     runSequentialTest(new SimpleDeque<Integer>(5), 5);
     runConcurrencyTest(new SimpleDeque<Integer>(1_000_000), 1_000_000, 8);
+    runConcurrencyChase(new SimpleDeque<Integer>(1_000_000), 1_000_000, 8);
+    //runSequentialTest(new ChaseLevDeque<Integer>(5), 5);
+    //runConcurrencyChase(new ChaseLevDeque<Integer>(1_000_000), 1_000_000, 8);
   }
 
   private static void runSequentialTest(Deque<Integer> queue, int size)
@@ -343,7 +351,7 @@ class SimpleDequeTests {
     for(int t = 0; t<threadCount; t++)
     {
       threads[t] = new Thread(() -> {
-        final Random r = new Random();
+        final Random r = new Random(1);
         int amtAdded = 0, amtRemoved = 0, foundSum = 0, pushedSum = 0;
         try { startBarrier.await(); } catch (Exception exn) { }
         while(amtAdded != numberOfElements || amtRemoved != numberOfElements)
@@ -388,6 +396,83 @@ class SimpleDequeTests {
           }
         }
         expectedSum.add(pushedSum);
+        sum.add(foundSum);
+        try { stopBarrier.await(); } catch (Exception exn) { }
+      });
+      threads[t].start();
+    }
+    try { startBarrier.await(); } catch (Exception exn) { }
+    try { stopBarrier.await(); } catch (Exception exn) { }
+    
+
+    assert queue.pop() == null;
+    assert (expectedSum.sum() == sum.sum());
+  }
+
+  private static void runConcurrencyChase(final Deque<Integer> queue, final int size, int threadCount)
+  {
+    final Thread[] threads = new Thread[threadCount];
+    final int numberOfElements = size/threadCount-1;
+    final LongAdder expectedSum = new LongAdder();
+    final LongAdder sum = new LongAdder();
+    final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
+      stopBarrier = startBarrier;
+    threads[0] = new Thread(() -> {
+      final Random r = new Random(1);
+      int amtAdded = 0, amtRemoved = 0, foundSum = 0, pushedSum = 0;
+      try { startBarrier.await(); } catch (Exception exn) { }
+      while(amtAdded != size || amtRemoved != numberOfElements)
+      {
+        int testCase = r.nextInt(2); // double as many pushes as steal and pop independently
+        switch(testCase)
+        {
+          case 0: {
+            if(amtRemoved != numberOfElements)
+            {
+              Integer result = queue.pop();
+              if(result != null)
+              {
+                foundSum += result;
+                amtRemoved++;
+              }
+              break;
+            }
+          }
+          default: { // push stuff
+            if(amtAdded != numberOfElements)
+            {
+              int value = r.nextInt(1000);
+              queue.push(value);
+              pushedSum += value;
+              amtAdded++;
+              break;
+            }
+          }
+        }
+      }
+      expectedSum.add(pushedSum);
+      sum.add(foundSum);
+      try { stopBarrier.await(); } catch (Exception exn) { }
+    });
+    for(int t = 1; t<threadCount; t++)
+    {
+      threads[t] = new Thread(() -> {
+        final Random r = new Random(1);
+        int amtRemoved = 0, foundSum = 0;
+        try { startBarrier.await(); } catch (Exception exn) { }
+        while(amtRemoved != numberOfElements)
+        {
+          if(amtRemoved != numberOfElements)
+          {
+            Integer result = queue.steal();
+            if(result != null)
+            {
+              foundSum += result;
+              amtRemoved++;
+            }
+            break;
+          }
+        }
         sum.add(foundSum);
         try { stopBarrier.await(); } catch (Exception exn) { }
       });
@@ -474,10 +559,11 @@ class SimpleDeque<T> implements Deque<T> {
 
 // PSEUDOCODE for ChaseLevDeque class:
 
-/* 
+
 class ChaseLevDeque<T> implements Deque<T> {
-  long bottom = 0, top = 0;
-  T[] items;
+  volatile long bottom = 0;
+  final AtomicLong top = new AtomicLong();
+  final T[] items;
 
   public ChaseLevDeque(int size) {
     this.items = makeArray(size);
@@ -494,7 +580,7 @@ class ChaseLevDeque<T> implements Deque<T> {
   }
 
   public void push(T item) { // at bottom
-    final long b = bottom, t = top, size = b - t;
+    final long b = bottom, t = top.get(), size = b - t;
     if (size == items.length) 
       throw new RuntimeException("queue overflow");
     items[index(b, items.length)] = item;
@@ -504,7 +590,7 @@ class ChaseLevDeque<T> implements Deque<T> {
   public T pop() { // from bottom
     final long b = bottom - 1;
     bottom = b;
-    final long t = top, afterSize = b - t;
+    final long t = top.get(), afterSize = b - t;
     if (afterSize < 0) { // empty before call
       bottom = t;
       return null;
@@ -513,7 +599,7 @@ class ChaseLevDeque<T> implements Deque<T> {
       if (afterSize > 0) // non-empty after call
         return result;
       else {		// became empty, update both top and bottom
-        if (!CAS(top, t, t+1)) // somebody stole result
+        if (!top.compareAndSet(t, t+1)) // somebody stole result
           result = null;
         bottom = t+1;
         return result;
@@ -522,12 +608,12 @@ class ChaseLevDeque<T> implements Deque<T> {
   }
 
   public T steal() { // from top
-    final long t = top, b = bottom, size = b - t;
+    final long t = top.get(), b = bottom, size = b - t;
     if (size <= 0)
       return null;
     else {
       T result = items[index(t, items.length)];
-      if (CAS(top, t, t+1))
+      if (top.compareAndSet(t, t+1))
         return result;
       else 
         return null;
@@ -535,7 +621,6 @@ class ChaseLevDeque<T> implements Deque<T> {
   }
 }
 
-*/
 
 // ----------------------------------------------------------------------
 

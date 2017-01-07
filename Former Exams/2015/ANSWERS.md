@@ -41,3 +41,44 @@ true
 8 cores:        Time:   4.816813
 true
 9 cores:        Time:   4.812790
+
+## Question 6
+1 cores:        Time:   4.917138
+true
+2 cores:        Time:   4.977236
+true
+3 cores:        Time:   5.992478
+true
+4 cores:        Time:   6.05089
+true
+5 cores:        Time:   6.018155
+true
+6 cores:        Time:   6.030002
+true
+7 cores:        Time:   6.00684
+true
+8 cores:        Time:   6.030341
+true
+9 cores:        Time:   6.039544
+
+## Question 7
+
+## Question 11
+1 cores:        Time:   4.478738
+true
+2 cores:        Time:   4.400327
+true
+3 cores:        Time:   4.254553
+true
+4 cores:        Time:   4.278442
+true
+5 cores:        Time:   4.278401
+true
+6 cores:        Time:   4.295121
+true
+7 cores:        Time:   4.330412
+true
+8 cores:        Time:   4.272225
+true
+9 cores:        Time:   4.281875
+true
