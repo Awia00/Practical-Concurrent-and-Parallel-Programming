@@ -18,22 +18,22 @@ import java.util.concurrent.CyclicBarrier;
 
 
 public class Quicksorts {
-  final static int size = 100_000_000; // Number of integers to sort
+  final static int size = 10_000_000; // Number of integers to sort
 
   public static void main(String[] args) {
     System.out.println("Array size: " + size + "\n");
     //sequentialRecursive();
     // System.out.println(" --- SingleQueueSingleThread --- ");
     // singleQueueSingleThread();
-    // System.out.println(" --- SingleQueueMultiThread --- ");
-    // for(int i = 1; i<=16; i*=2)
-    //   singleQueueMultiThread(i);
+    System.out.println(" --- SingleQueueMultiThread --- ");
+    for(int i = 1; i<=16; i*=2)
+      singleQueueMultiThread(i);
     // System.out.println(" --- MultiQueueMultiThread --- ");
     // for(int i = 1; i<=16; i*=2)
     //   multiQueueMultiThread(i);
-    System.out.println(" --- MultiQueueMultiThreadCL --- ");
-    for(int i = 1; i<=16; i*=2)
-      multiQueueMultiThreadCL(i);
+    // System.out.println(" --- MultiQueueMultiThreadCL --- ");
+    // for(int i = 4; i<=16; i*=2)
+    //   multiQueueMultiThreadCL(i);
 
     //SimpleDequeTests.runAllTests();
   }
@@ -109,8 +109,8 @@ public class Quicksorts {
   // Version C: Single-queue multi-thread setup 
 
   private static void singleQueueMultiThread(final int threadCount) {
-    int[] arr = IntArrayUtil.randomIntArray(size);
-    SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
+    final int[] arr = IntArrayUtil.randomIntArray(size);
+    final SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
     queue.push(new SortTask(arr, 0, arr.length-1));
     sqmtWorkers(queue, threadCount);
     //System.out.println(IntArrayUtil.isSorted(arr));
@@ -128,7 +128,7 @@ public class Quicksorts {
         try { startBarrier.await(); } catch (Exception exn) { }
         SortTask task;
         while (null != (task = getTask(queue, amt))) {
-          amt.decrement();
+          
           final int[] arr = task.arr;
           final int a = task.a, b = task.b;
           if (a < b) { 
@@ -147,13 +147,14 @@ public class Quicksorts {
             queue.push(new SortTask(arr, i, b));
             amt.increment();
           }
+          amt.decrement();
         }
         try { stopBarrier.await(); } catch (Exception exn) { }
       });
       threads[t].start();
     }
     try { startBarrier.await(); } catch (Exception exn) { }
-    Timer timer = new Timer();
+    final Timer timer = new Timer();
     try { stopBarrier.await(); } catch (Exception exn) { }
     System.out.println(threadCount + " threads:\t" + "Time:\t" + timer.check());
   }
@@ -176,9 +177,9 @@ public class Quicksorts {
   // Version D: Multi-queue multi-thread setup, thread-local queues
 
   private static void multiQueueMultiThread(final int threadCount) {
-    int[] arr = IntArrayUtil.randomIntArray(size);
+    final int[] arr = IntArrayUtil.randomIntArray(size);
     // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
-    SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
+    final SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
     for(int i = 0; i<threadCount; i++)
       queues[i] = new SimpleDeque<SortTask>(100000);
     queues[0].push(new SortTask(arr, 0, arr.length-1));
@@ -189,8 +190,8 @@ public class Quicksorts {
   // Version E: Multi-queue multi-thread setup, thread-local queues
 
   private static void multiQueueMultiThreadCL(final int threadCount) {
-    int[] arr = IntArrayUtil.randomIntArray(size);
-    Deque<SortTask>[] queues = new ChaseLevDeque[threadCount];
+    final int[] arr = IntArrayUtil.randomIntArray(size);
+    final Deque<SortTask>[] queues = new ChaseLevDeque[threadCount];
     for(int i = 0; i<threadCount; i++)
       queues[i] = new ChaseLevDeque<SortTask>(100000);
     queues[0].push(new SortTask(arr, 0, arr.length-1));
@@ -211,7 +212,7 @@ public class Quicksorts {
         try { startBarrier.await(); } catch (Exception exn) { }
         SortTask task;
         while (null != (task = getTask(myNumber, queues, amt))) {
-          amt.decrement();
+          
           final int[] arr = task.arr;
           final int a = task.a, b = task.b;
           if (a < b) { 
@@ -230,13 +231,14 @@ public class Quicksorts {
             queues[myNumber].push(new SortTask(arr, i, b));
             amt.increment();
           }
+          amt.decrement();
         }
         try { stopBarrier.await(); } catch (Exception exn) { }
       });
       threads[t].start();
     }
     try { startBarrier.await(); } catch (Exception exn) { }
-    Timer timer = new Timer();
+    final Timer timer = new Timer();
     try { stopBarrier.await(); } catch (Exception exn) { }
     System.out.println(threadCount + " threads:\t" + "Time:\t" + timer.check());
   }
