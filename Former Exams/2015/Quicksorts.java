@@ -18,19 +18,24 @@ import java.util.concurrent.CyclicBarrier;
 
 
 public class Quicksorts {
-  final static int size = 30_000_000; // Number of integers to sort
+  final static int size = 100_000_000; // Number of integers to sort
 
   public static void main(String[] args) {
+    System.out.println("Array size: " + size + "\n");
     //sequentialRecursive();
-    //singleQueueSingleThread();
-    // for(int i = 1; i<=16; i++)
+    // System.out.println(" --- SingleQueueSingleThread --- ");
+    // singleQueueSingleThread();
+    // System.out.println(" --- SingleQueueMultiThread --- ");
+    // for(int i = 1; i<=16; i*=2)
     //   singleQueueMultiThread(i);
-    // for(int i = 1; i<=16; i++)
+    // System.out.println(" --- MultiQueueMultiThread --- ");
+    // for(int i = 1; i<=16; i*=2)
     //   multiQueueMultiThread(i);
-    // for(int i = 1; i<=16; i++)
-    //  multiQueueMultiThreadCL(i);
+    System.out.println(" --- MultiQueueMultiThreadCL --- ");
+    for(int i = 1; i<=16; i*=2)
+      multiQueueMultiThreadCL(i);
 
-    SimpleDequeTests.runAllTests();
+    //SimpleDequeTests.runAllTests();
   }
 
   // ----------------------------------------------------------------------
@@ -73,10 +78,11 @@ public class Quicksorts {
     int[] arr = IntArrayUtil.randomIntArray(size);
     queue.push(new SortTask(arr, 0, arr.length-1));
     sqstWorker(queue);
-    System.out.println(IntArrayUtil.isSorted(arr));
+    //System.out.println(IntArrayUtil.isSorted(arr));
   }
 
   private static void sqstWorker(Deque<SortTask> queue) {
+    Timer timer = new Timer();
     SortTask task;
     while (null != (task = queue.pop())) {
       final int[] arr = task.arr;
@@ -96,6 +102,7 @@ public class Quicksorts {
         queue.push(new SortTask(arr, i, b));               
       }
     }
+    System.out.println("1 thread:\t" + "Time:\t" + timer.check());
   }
 
   // ---------------------------------------------------------------------- 
@@ -106,14 +113,14 @@ public class Quicksorts {
     SimpleDeque<SortTask> queue = new SimpleDeque<SortTask>(100000);
     queue.push(new SortTask(arr, 0, arr.length-1));
     sqmtWorkers(queue, threadCount);
-    System.out.println(IntArrayUtil.isSorted(arr));
+    //System.out.println(IntArrayUtil.isSorted(arr));
   }
 
   private static void sqmtWorkers(Deque<SortTask> queue, int threadCount) {
     final Thread[] threads = new Thread[threadCount];
     final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
       stopBarrier = startBarrier;
-    final LongAdder amt = new LongAdder(); amt.add(1);
+    final LongAdder amt = new LongAdder(); amt.increment();
     for(int t = 0; t<threadCount; t++)
     {
       threads[t] = new Thread(() ->
@@ -121,7 +128,7 @@ public class Quicksorts {
         try { startBarrier.await(); } catch (Exception exn) { }
         SortTask task;
         while (null != (task = getTask(queue, amt))) {
-          amt.add(-1);
+          amt.decrement();
           final int[] arr = task.arr;
           final int a = task.a, b = task.b;
           if (a < b) { 
@@ -136,9 +143,9 @@ public class Quicksorts {
               }                             
             } while (i <= j); 
             queue.push(new SortTask(arr, a, j));
-            amt.add(1);
+            amt.increment();
             queue.push(new SortTask(arr, i, b));
-            amt.add(1);
+            amt.increment();
           }
         }
         try { stopBarrier.await(); } catch (Exception exn) { }
@@ -148,12 +155,11 @@ public class Quicksorts {
     try { startBarrier.await(); } catch (Exception exn) { }
     Timer timer = new Timer();
     try { stopBarrier.await(); } catch (Exception exn) { }
-    System.out.println(threadCount + " cores:\t" + "Time:\t" + timer.check());
+    System.out.println(threadCount + " threads:\t" + "Time:\t" + timer.check());
   }
 
   // Tries to get a sorting task.  If task queue is empty but some
   // tasks are not yet processed, yield and then try again.
-
   private static SortTask getTask(final Deque<SortTask> queue, LongAdder ongoing) {
     SortTask task;
     while (null == (task = queue.pop())) {
@@ -174,10 +180,10 @@ public class Quicksorts {
     // To do: ... create queues and so on, then call mqmtWorkers(queues, threadCount)
     SimpleDeque<SortTask>[] queues = new SimpleDeque[threadCount];
     for(int i = 0; i<threadCount; i++)
-      queues[i] = new SimpleDeque<SortTask>(1000);
+      queues[i] = new SimpleDeque<SortTask>(100000);
     queues[0].push(new SortTask(arr, 0, arr.length-1));
     mqmtWorkers(queues, threadCount);
-    System.out.println(IntArrayUtil.isSorted(arr));
+    //System.out.println(IntArrayUtil.isSorted(arr));
   }
 
   // Version E: Multi-queue multi-thread setup, thread-local queues
@@ -186,17 +192,17 @@ public class Quicksorts {
     int[] arr = IntArrayUtil.randomIntArray(size);
     Deque<SortTask>[] queues = new ChaseLevDeque[threadCount];
     for(int i = 0; i<threadCount; i++)
-      queues[i] = new ChaseLevDeque<SortTask>(1000);
+      queues[i] = new ChaseLevDeque<SortTask>(100000);
     queues[0].push(new SortTask(arr, 0, arr.length-1));
     mqmtWorkers(queues, threadCount);
-    System.out.println(IntArrayUtil.isSorted(arr));
+    //System.out.println(IntArrayUtil.isSorted(arr));
   }
 
   private static void mqmtWorkers(Deque<SortTask>[] queues, int threadCount) {
     final Thread[] threads = new Thread[threadCount];
     final CyclicBarrier startBarrier = new CyclicBarrier(threadCount + 1), 
       stopBarrier = startBarrier;
-    final LongAdder amt = new LongAdder(); amt.add(1);
+    final LongAdder amt = new LongAdder(); amt.increment();
     for(int t = 0; t<threadCount; t++)
     {
       final int myNumber = t;
@@ -205,7 +211,7 @@ public class Quicksorts {
         try { startBarrier.await(); } catch (Exception exn) { }
         SortTask task;
         while (null != (task = getTask(myNumber, queues, amt))) {
-          amt.add(-1);
+          amt.decrement();
           final int[] arr = task.arr;
           final int a = task.a, b = task.b;
           if (a < b) { 
@@ -220,9 +226,9 @@ public class Quicksorts {
               }                             
             } while (i <= j); 
             queues[myNumber].push(new SortTask(arr, a, j));
-            amt.add(1);
+            amt.increment();
             queues[myNumber].push(new SortTask(arr, i, b));
-            amt.add(1);
+            amt.increment();
           }
         }
         try { stopBarrier.await(); } catch (Exception exn) { }
@@ -232,7 +238,7 @@ public class Quicksorts {
     try { startBarrier.await(); } catch (Exception exn) { }
     Timer timer = new Timer();
     try { stopBarrier.await(); } catch (Exception exn) { }
-    System.out.println(threadCount + " cores:\t" + "Time:\t" + timer.check());
+    System.out.println(threadCount + " threads:\t" + "Time:\t" + timer.check());
   }
 
   // Tries to get a sorting task.  If task queue is empty, repeatedly
@@ -457,7 +463,6 @@ class SimpleDequeTests {
     for(int t = 1; t<threadCount; t++)
     {
       threads[t] = new Thread(() -> {
-        final Random r = new Random(1);
         int amtRemoved = 0, foundSum = 0;
         try { startBarrier.await(); } catch (Exception exn) { }
         while(amtRemoved != numberOfElements)
