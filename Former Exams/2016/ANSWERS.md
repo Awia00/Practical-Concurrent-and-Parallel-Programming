@@ -1,6 +1,8 @@
 # PCPP 2016 exam
 *Anders Wind - awis@itu.dk*
 
+====== PART 1 ======
+
 ## Question 1
 ### 1)
 It does not indicate that Mystery is threadsafe. I tried running it multiple times and got these results:
@@ -52,6 +54,9 @@ One could make the totalSize an AtomicInt or LongAdder - they are threadsafe and
 I would use javas ConcurrentHashSet instead. It allows multiple threads to add and get(which are the only two methods we need) elements concurrently in a threadsafe manner.
 
 For both of these answers it would be a good idea to make them final aswell since it would provide better performance and it is generally a good idea to make fields final when they dont change and work in a cncurrent environment because visibility....
+
+
+====== PART 2 ======
 
 ## Question 4
 

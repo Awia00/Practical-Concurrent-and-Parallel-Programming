@@ -25,20 +25,94 @@ public class SortingPipeline {
   public static void main(String[] args) {
     SystemInfo();
     final int count = 100_000, P = 4;
-    final double[] arr = DoubleArray.randomPermutation(count);
-
+    testBlockingNSortPipeline(40, P);
+    // Mark7("WrapppedArrayDoubleQueue: ", 
+    //   i -> testWrappedSortPipeline(count, P));
+    // Mark7("BlockingNDoubleQueue: ", 
+    //   i -> testBlockingNSortPipeline(count, P));
     // TO DO: Create and run pipeline to sort numbers from arr
   }
 
-  private static void sortPipeline(double[] arr, int P, BlockingDoubleQueue[] queues) {
-    // TO DO
+  private static double testWrappedSortPipeline(final int count, final int P)
+  {
+    final double[] arr = DoubleArray.randomPermutation(count);
+    final BlockingDoubleQueue[] queues = new BlockingDoubleQueue[P+1];
+    for(int i = 0; i < P+1; i++)
+    {
+      queues[i] = new WrapppedArrayDoubleQueue();
+    } 
+    sortPipeline(arr, P, queues);
+    return (double)arr.length;
+  }
+  
+  private static double testBlockingNSortPipeline(final int count, final int P)
+  {
+    final double[] arr = DoubleArray.randomPermutation(count);
+    final BlockingDoubleQueue[] queues = new BlockingDoubleQueue[P+1];
+    for(int i = 0; i < P+1; i++)
+    {
+      queues[i] = new BlockingNDoubleQueue();
+    } 
+    sortPipeline(arr, P, queues);
+    return (double)arr.length;
+  }
+
+  private static void sortPipeline(final double[] arr, final int P, final BlockingDoubleQueue[] queues) {
+    final Thread[] threads = new Thread[P+2];
+    final int size = arr.length/P;
+    threads[0] = new Thread(new DoubleGenerator(arr, arr.length, queues[0])); 
+    threads[P+1] = new Thread(new SortedChecker(arr.length, queues[P]));
+    for(int i = 1; i<=P; i++)
+    {
+      threads[i] = new Thread(new SortingStage(queues[i-1], queues[i], size, arr.length, P, i));
+    }
+    for(int i = 0; i<P+2; i++)
+    {
+      threads[i].start();
+    }
+    for(int i = 0; i<P+2; i++)
+    {
+      try
+      {
+        threads[i].join();
+      }catch(Exception e)
+      {
+        System.out.println(e);
+      }
+    }
   }
 
   static class SortingStage implements Runnable {
-    // TO DO: field declarations, constructor, and so on 
+    private final BlockingDoubleQueue input, output;
+    private final double[] heap;
+    private int heapSize;
+    private int itemCount;
+    
+    SortingStage(BlockingDoubleQueue input, BlockingDoubleQueue output, int size, int n, int p, int i)
+    {
+      this.input = input;
+      this.output = output;
+      this.itemCount = n+(p-i)*size;
+      this.heap = new double[size];
+    }
     
     public void run() { 
-      // TO DO 
+      while (itemCount > 0) {
+        double x = input.take();
+        if (heapSize < heap.length) { // heap not full, put x into it
+          heap[heapSize++] = x;
+          DoubleArray.minheapSiftup(heap, heapSize-1, heapSize-1);
+        } else if (x <= heap[0]) { // x is small, forward
+          output.put(x);
+          itemCount--;
+        } else { // forward least, replace with x
+          double least = heap[0];
+          heap[0] = x;
+          DoubleArray.minheapSiftdown(heap, 0, heapSize-1);
+          output.put(least);
+          itemCount--;
+        }
+      }
     }
   }
 
@@ -63,7 +137,7 @@ public class SortingPipeline {
 
   static class SortedChecker implements Runnable {
     // If DEBUG is true, print the first 100 numbers received
-    private final static boolean DEBUG = false;
+    private final static boolean DEBUG = true;
     private final BlockingDoubleQueue input;
     private final int itemCount; // the number of items to check
 
@@ -149,6 +223,69 @@ public class SortingPipeline {
 interface BlockingDoubleQueue {
   double take();
   void put(double item);
+}
+
+class WrapppedArrayDoubleQueue implements BlockingDoubleQueue {
+  private ArrayBlockingQueue<Double> queue;
+  public WrapppedArrayDoubleQueue()
+  {
+    queue = new ArrayBlockingQueue<Double>(50);
+  }
+  
+  public double take()
+  {
+    try{
+      return queue.take();
+    } catch(Exception e) {}
+    return 0.0;
+  }
+
+  public void put(double item)
+  {
+    try{
+      queue.put(item);
+    } catch(Exception e) {}
+  }
+}
+
+class BlockingNDoubleQueue implements BlockingDoubleQueue {
+  final double[] arr = new double[50];
+  volatile int head, tail;
+
+  private static int index(int i, int n) {
+    return (i % n);
+  }
+
+  public double take()
+  {
+    synchronized(this)
+    {
+      int size;
+      while((size = tail-head) <= 0) 
+      {
+        try { this.wait(); } 
+        catch (InterruptedException exn) { } 
+      }
+      double element = arr[index(head++, arr.length)];
+      this.notifyAll();
+      return element;
+    }
+  }
+
+  public void put(double item)
+  {
+    synchronized(this)
+    {
+      int size;
+      while((size = tail - head) == arr.length);
+      {
+        try { this.wait(); } 
+        catch (InterruptedException exn) { } 
+      }
+      arr[index(tail++, arr.length)] = item;
+      this.notifyAll();
+    }
+  }
 }
 
 // The queue implementations

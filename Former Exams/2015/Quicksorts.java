@@ -519,7 +519,6 @@ class SimpleDeque<T> implements Deque<T> {
   }
 
   private Object bottomLock = new Object();
-  private Object topLock = new Object();
   public void push(T item) { // at bottom
     synchronized(bottomLock) {
       final long size = bottom - top;
