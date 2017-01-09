@@ -20,21 +20,33 @@ import java.util.function.Function;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.function.IntToDoubleFunction;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.*;
+import org.multiverse.api.references.*;
+import org.multiverse.api.StmUtils;
+import static org.multiverse.api.StmUtils.*;
 
 public class SortingPipeline {
   public static void main(String[] args) {
     SystemInfo();
-    final int count = 100_000, P = 4;
-    // testBlockingNSortPipeline(40, P);
-    // testWrappedSortPipeline(40, P);
-    // testUnboundedSortPipeline(40, P);
+    final int count = 100_000, P = 5;
+    testBlockingNSortPipeline(40, P);
+    testWrappedSortPipeline(40, P);
+    testUnboundedSortPipeline(40, P);
+    testWaitFreeSortPipeline(40, P);
+    testMSUnboundedSortPipeline(40, P);
+    testStmBlockingSortPipeline(40, P);
     Mark7("WrapppedArrayDoubleQueue: ", 
       i -> testWrappedSortPipeline(count, P));
     Mark7("BlockingNDoubleQueue: ", 
       i -> testBlockingNSortPipeline(count, P));
     Mark7("UnboundedDoubleQueue: ", 
       i -> testUnboundedSortPipeline(count, P));
-    // TO DO: Create and run pipeline to sort numbers from arr
+    Mark7("WaitFreeQueue: ", 
+      i -> testWaitFreeSortPipeline(count, P));
+    Mark7("MSUnboundedDoubleQueue: ", 
+      i -> testMSUnboundedSortPipeline(count, P));
+    Mark7("StmBlockingNDoubleQueue: ", 
+      i -> testStmBlockingSortPipeline(count, P));
   }
 
   private static double testWrappedSortPipeline(final int count, final int P)
@@ -68,6 +80,42 @@ public class SortingPipeline {
     for(int i = 0; i < P+1; i++)
     {
       queues[i] = new UnboundedDoubleQueue();
+    } 
+    sortPipeline(arr, P, queues);
+    return (double)arr.length;
+  }
+
+  private static double testWaitFreeSortPipeline(final int count, final int P)
+  {
+    final double[] arr = DoubleArray.randomPermutation(count);
+    final BlockingDoubleQueue[] queues = new BlockingDoubleQueue[P+1];
+    for(int i = 0; i < P+1; i++)
+    {
+      queues[i] = new WaitFreeQueue(50);
+    } 
+    sortPipeline(arr, P, queues);
+    return (double)arr.length;
+  }
+
+  private static double testMSUnboundedSortPipeline(final int count, final int P)
+  {
+    final double[] arr = DoubleArray.randomPermutation(count);
+    final BlockingDoubleQueue[] queues = new BlockingDoubleQueue[P+1];
+    for(int i = 0; i < P+1; i++)
+    {
+      queues[i] = new MSUnboundedDoubleQueue();
+    } 
+    sortPipeline(arr, P, queues);
+    return (double)arr.length;
+  }
+
+  private static double testStmBlockingSortPipeline(final int count, final int P)
+  {
+    final double[] arr = DoubleArray.randomPermutation(count);
+    final BlockingDoubleQueue[] queues = new BlockingDoubleQueue[P+1];
+    for(int i = 0; i < P+1; i++)
+    {
+      queues[i] = new StmBlockingNDoubleQueue();
     } 
     sortPipeline(arr, P, queues);
     return (double)arr.length;
@@ -308,7 +356,6 @@ class BlockingNDoubleQueue implements BlockingDoubleQueue {
 class UnboundedDoubleQueue implements BlockingDoubleQueue {
   private final Node sentinel = new Node(null, 0);
   private Node head = sentinel, tail = sentinel;
-  private double[] arr;
 
   public double take()
   {
@@ -363,9 +410,138 @@ class UnboundedDoubleQueue implements BlockingDoubleQueue {
   }
 }
 
-// The queue implementations
+class WaitFreeQueue implements BlockingDoubleQueue {
+  private volatile int head = 0, tail = 0;
+  private final double[] items;
 
-// TO DO
+  public WaitFreeQueue(int capacity)
+  {
+    items = new double[capacity];
+  }
+
+  public double take()
+  {
+    while(tail - head == 0)
+    {
+      Thread.yield();
+    }
+    double x = items[head % items.length];
+    head++;
+    return x;
+  }
+
+  public void put(double item)
+  {
+    while(tail - head == items.length)
+    {
+      Thread.yield();
+    }
+    items[tail % items.length] = item;
+    tail++;
+  }
+}
+
+class MSUnboundedDoubleQueue implements BlockingDoubleQueue {
+  private AtomicReference<Node> head, tail;
+  private final AtomicReferenceFieldUpdater<Node, Node> nextUpdater = AtomicReferenceFieldUpdater.newUpdater(Node.class, Node.class, "next");
+  public MSUnboundedDoubleQueue()
+  {
+    Node sentinel = new Node(null, 0);
+    head = new AtomicReference<Node>(sentinel);
+    tail = new AtomicReference<Node>(sentinel);
+  }
+  public double take()
+  {
+    while(true)
+    {
+      Node first = head.get(),
+          last = tail.get(),
+          next = first.next;
+      if (first == head.get()) {
+        if (first == last) {
+          if (next == null)
+          {
+            Thread.yield();
+            continue;
+          }
+          else
+            tail.compareAndSet(last, next);
+        } else {
+          double result = next.item;
+          if(head.compareAndSet(first, next))
+          {
+            return result;
+          }
+        }
+      }
+    } 
+  }
+
+  public void put(double item)
+  {
+    Node node = new Node(null, item);
+    while(true)
+    {
+      Node last = tail.get(), next = last.next;
+      if(last == tail.get())
+      {
+        if(next == null) 
+        {
+          if(nextUpdater.compareAndSet(last, next, node))
+          {
+            tail.compareAndSet(last, node);
+            return;
+          }
+        } else {
+          tail.compareAndSet(last, next);
+        }
+      }
+    }
+  }
+
+  private class Node {
+    public volatile Node next;
+    public final double item;
+    public Node(Node next, double item)
+    {
+      this.next = next;
+      this.item = item;
+    }
+
+    
+  }
+}
+
+class StmBlockingNDoubleQueue implements BlockingDoubleQueue {
+  private final double[] arr = new double[50];
+  private volatile int head, tail;
+
+  public double take()
+  {
+    return atomic ( () -> {      
+      while(head==tail) 
+      {
+        Thread.yield();
+      }
+      
+      double element = arr[head];
+      head = (head + 1) % arr.length;
+      return element;
+    });
+  }
+
+  public void put(double item)
+  {
+    atomic ( () -> {  
+      while((tail + 1) % arr.length == head)
+      {
+        Thread.yield();
+      }
+      arr[tail] = item;
+      tail = (tail + 1) % arr.length;
+    });
+  }
+}
 
 // ----------------------------------------------------------------------
 
