@@ -25,11 +25,15 @@ public class SortingPipeline {
   public static void main(String[] args) {
     SystemInfo();
     final int count = 100_000, P = 4;
-    testBlockingNSortPipeline(40, P);
-    // Mark7("WrapppedArrayDoubleQueue: ", 
-    //   i -> testWrappedSortPipeline(count, P));
-    // Mark7("BlockingNDoubleQueue: ", 
-    //   i -> testBlockingNSortPipeline(count, P));
+    // testBlockingNSortPipeline(40, P);
+    // testWrappedSortPipeline(40, P);
+    // testUnboundedSortPipeline(40, P);
+    Mark7("WrapppedArrayDoubleQueue: ", 
+      i -> testWrappedSortPipeline(count, P));
+    Mark7("BlockingNDoubleQueue: ", 
+      i -> testBlockingNSortPipeline(count, P));
+    Mark7("UnboundedDoubleQueue: ", 
+      i -> testUnboundedSortPipeline(count, P));
     // TO DO: Create and run pipeline to sort numbers from arr
   }
 
@@ -56,18 +60,32 @@ public class SortingPipeline {
     sortPipeline(arr, P, queues);
     return (double)arr.length;
   }
+  
+  private static double testUnboundedSortPipeline(final int count, final int P)
+  {
+    final double[] arr = DoubleArray.randomPermutation(count);
+    final BlockingDoubleQueue[] queues = new BlockingDoubleQueue[P+1];
+    for(int i = 0; i < P+1; i++)
+    {
+      queues[i] = new UnboundedDoubleQueue();
+    } 
+    sortPipeline(arr, P, queues);
+    return (double)arr.length;
+  }
+
 
   private static void sortPipeline(final double[] arr, final int P, final BlockingDoubleQueue[] queues) {
     final Thread[] threads = new Thread[P+2];
     final int size = arr.length/P;
+
     threads[0] = new Thread(new DoubleGenerator(arr, arr.length, queues[0])); 
     threads[P+1] = new Thread(new SortedChecker(arr.length, queues[P]));
+    threads[0].start();
+    threads[P+1].start();
+
     for(int i = 1; i<=P; i++)
     {
       threads[i] = new Thread(new SortingStage(queues[i-1], queues[i], size, arr.length, P, i));
-    }
-    for(int i = 0; i<P+2; i++)
-    {
       threads[i].start();
     }
     for(int i = 0; i<P+2; i++)
@@ -137,7 +155,7 @@ public class SortingPipeline {
 
   static class SortedChecker implements Runnable {
     // If DEBUG is true, print the first 100 numbers received
-    private final static boolean DEBUG = true;
+    private final static boolean DEBUG = false;
     private final BlockingDoubleQueue input;
     private final int itemCount; // the number of items to check
 
@@ -236,8 +254,9 @@ class WrapppedArrayDoubleQueue implements BlockingDoubleQueue {
   {
     try{
       return queue.take();
-    } catch(Exception e) {}
-    return 0.0;
+    } catch(Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public void put(double item)
@@ -249,41 +268,97 @@ class WrapppedArrayDoubleQueue implements BlockingDoubleQueue {
 }
 
 class BlockingNDoubleQueue implements BlockingDoubleQueue {
-  final double[] arr = new double[50];
-  volatile int head, tail;
-
-  private static int index(int i, int n) {
-    return (i % n);
-  }
+  private final double[] arr = new double[50];
+  private volatile int head, tail;
+  private final Object lock = new Object();
 
   public double take()
   {
-    synchronized(this)
+    synchronized(lock)
     {
-      int size;
-      while((size = tail-head) <= 0) 
+      while(head==tail) 
       {
-        try { this.wait(); } 
+        try { lock.wait(); } 
         catch (InterruptedException exn) { } 
       }
-      double element = arr[index(head++, arr.length)];
-      this.notifyAll();
+      
+      double element = arr[head];
+      head = (head + 1) % arr.length;
+      lock.notifyAll();
       return element;
     }
   }
 
   public void put(double item)
   {
-    synchronized(this)
+    synchronized(lock)
     {
-      int size;
-      while((size = tail - head) == arr.length);
+      while((tail + 1) % arr.length == head)
       {
-        try { this.wait(); } 
+        try { lock.wait(); } 
         catch (InterruptedException exn) { } 
       }
-      arr[index(tail++, arr.length)] = item;
-      this.notifyAll();
+      arr[tail] = item;
+      tail = (tail + 1) % arr.length;
+      lock.notifyAll();
+    }
+  }
+}
+
+class UnboundedDoubleQueue implements BlockingDoubleQueue {
+  private final Node sentinel = new Node(null, 0);
+  private Node head = sentinel, tail = sentinel;
+  private double[] arr;
+
+  public double take()
+  {
+    synchronized(head) // if head is tail then I also have that lock
+    {
+      while(head == tail) // if this is the case they are both the sentinel : the queue is empty
+      {
+        try { head.wait(); } 
+        catch (InterruptedException exn) { } 
+      }
+      head = head.getNext();
+      double element = head.getValue();
+      return element;
+    }
+  }
+
+  public void put(double item)
+  {
+    synchronized(tail) // if tail is head then I also have that lock
+    {
+      Node prev = tail;
+      Node newNode = new Node(null, item);
+      tail.setNext(newNode);
+      tail = newNode;
+      prev.notifyAll();
+    }
+  }
+
+  private class Node {
+    private Node next;
+    private final double value;
+    public Node(Node next, double value)
+    {
+      this.next = next;
+      this.value = value;
+    }
+
+    public void setNext(Node node)
+    {
+      next = node;
+    }
+
+    public Node getNext()
+    {
+      return next;
+    }
+
+    public double getValue()
+    {
+      return value;
     }
   }
 }
