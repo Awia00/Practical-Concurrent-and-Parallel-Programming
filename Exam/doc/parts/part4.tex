@@ -1,0 +1,166 @@
+% !TeX spellcheck = en_GB
+\section{Question 4}
+% Question 4.1
+\subsection{}
+In figure \ref{code:4:1} the implementation of the assignment step of \texttt{KMeans3} can be seen. The \texttt{groupingBy} is based on the same logic in \texttt{KMeans1} and the code is very alike. One could implement this with streams as well, but it seemed to be very inefficient, therefore I went for the lambda expression instead. To see the stream version, see the reference in figure \ref{code:4:1}.
+
+\begin{figure}
+\begin{lstlisting}
+{ // Assignment step: put each point in exactly one cluster
+    final Cluster[] clustersLocal = clusters;  // For capture in lambda
+    Stream<Point> pointStream = Arrays.stream(points);
+    Map<Cluster, List<Point>> groups = pointStream.collect(Collectors.groupingBy((Point p) -> {
+        Cluster best = null;
+        for (Cluster c : clustersLocal)
+            if (best == null || p.sqrDist(c.mean) < p.sqrDist(best.mean))
+                best = c;
+        return best;
+        // REFERENCE: Stream based version
+        // Arrays.stream(clustersLocal).min((Cluster c1, Cluster c2) -> (p.sqrDist(c1.mean) > p.sqrDist(c2.mean)) ? 1 : -1).get()));
+    }));
+    clusters = groups.entrySet().stream().map( (Map.Entry<Cluster, List<Point>> kv) -> new Cluster(kv.getKey().mean, kv.getValue())).toArray(size -> new Cluster[size]);
+}
+\end{lstlisting}
+\caption{The assignment step of KMeans3}
+\label{code:4:1}
+\end{figure}
+
+% Question 4.2
+\subsection{}
+In figure \ref{code:4:2} the implementation of the update step of \texttt{KMeans3} can be seen. 
+
+\begin{figure}
+\begin{lstlisting}
+{ // Update step: recompute mean of each cluster
+     Cluster[] newClusters = (Cluster[]) Arrays.stream(clusters).map((Cluster c) -> c.computeMean()).toArray(size -> new Cluster[size]);
+    converged = Arrays.equals(clusters, newClusters);
+    clusters = newClusters;
+}
+\end{lstlisting}
+\caption{The update step of KMeans3}
+\label{code:4:2}
+\end{figure}
+\clearpage
+% Question 4.3
+\subsection{}
+Here the running time and iterations of \texttt{KMeans3} can be seen:
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans3  Real time:     4.972
+...
+Used 108 iterations
+class kmean.KMeans3  Real time:     4.935
+...
+Used 108 iterations
+class kmean.KMeans3  Real time:     4.973
+\end{lstlisting}
+
+% Question 4.4
+\subsection{}
+In figure \ref{code:4:4} the implementation of the assignment step of \texttt{KMeans3P} can be seen. One of the nice features and concepts of the stream system is that if something does not have side effects then it is easy to parallelize. Simply by putting the \texttt{.parallel()} after the stream makes the pipeline happen in parallel. In this case the \texttt{groupBy collect} and later the mapping transformation to the clusters again happens in parallel. Even though the \texttt{groupby collect} reads from a shared collection \texttt{clustersLocal} it does not have any side effect and therefore it can still be parallelized.
+
+\begin{figure}
+\begin{lstlisting}
+{ // Assignment step: put each point in exactly one cluster
+    final Cluster[] clustersLocal = clusters;  // For capture in lambda
+    Stream<Point> pointStream = Arrays.stream(points).parallel();
+    Map<Cluster, List<Point>> groups = pointStream.collect(Collectors.groupingBy((Point p) -> {
+        Cluster best = null;
+        for (Cluster c : clustersLocal)
+            if (best == null || p.sqrDist(c.mean) < p.sqrDist(best.mean))
+                best = c;
+        return best;
+    }));
+    clusters = groups.entrySet().stream().parallel().map(
+            kv -> new Cluster(kv.getKey().mean, kv.getValue())).toArray(size -> new Cluster[size]
+    );
+}
+\end{lstlisting}
+\caption{The assignment step of KMeans3P}
+\label{code:4:4}
+\end{figure}
+
+% Question 4.5
+\subsection{}
+In figure \ref{code:4:5} the implementation of the update step of \texttt{KMeans3P} can be seen. Again simply the \texttt{.parallel()} has been added to the stream. 
+\begin{figure}
+\begin{lstlisting}
+{ // Update step: recompute mean of each cluster
+    Cluster[] newClusters = Arrays.stream(clusters).parallel().map(
+            c -> c.computeMean()).toArray(size -> new Cluster[size]
+    );
+    converged = Arrays.equals(clusters, newClusters);
+    clusters = newClusters;
+}
+\end{lstlisting}
+\caption{The update step of KMeans3P}
+\label{code:4:5}
+\end{figure}
+
+% Question 4.6
+\subsection{}
+Here the running time and iterations of \texttt{KMeans3P} can be seen:
+
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans3P Real time:     1.289
+...
+Used 108 iterations
+class kmean.KMeans3P Real time:     1.201
+...
+Used 108 iterations
+class kmean.KMeans3P Real time:     1.182
+\end{lstlisting}
+
+% Question 4.7
+\subsection{}
+No it was not necessary. Concurrency problems happen when we have shared mutable state, but since the data-structure is immutable no such problems can occur with this data-structure. We can see that \texttt{Cluster} is immutable both because the fields are final but also because the points list is unmodifiable - therefore any changes must be made by creating a new cluster.
+
+% Question 4.8
+\subsection{}
+In table \ref{tabel:4:8} the running times of the different implementations can be seen. The sample was of size 3 for each implementation. The number of nodes were $200 000$ and $k=81$. 
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\rowcolor{Gray}
+Implementation & 1st Iteration & 2nd Iteration & 3rd Iteration & Avg Time in seconds
+ \\ \hline
+KMeans1        & 5.313         & 5.453         & 5.011         & 5.259
+               \\ \hline
+KMeans1P       & 1.566         & 1.470         & 1.444         & 1.493
+               \\ \hline
+KMeans2        & 5.482         & 5.452         & 4.558         & 5.164
+               \\ \hline
+KMeans2P       & 1.309         & 1.231         & 1.269         & 1.270
+               \\ \hline
+KMeans2Q       & 2.656         & 2.880         & 2.187         & 2.574
+               \\ \hline
+KMeans2Stm     & 3.214         & 2.924         & 3.287         & 3.141
+               \\ \hline
+KMeans3        & 4.972         & 4.935         & 4.973         & 4.960
+               \\ \hline
+KMeans3P       & 1.289         & 1.201         & 1.182         & 1.224
+               \\ \hline
+\end{tabular}
+\caption{The running times of the different implementations of KMeans}
+\label{tabel:4:8}
+\end{table}
+
+It seems that the \texttt{KMeans2P} and \texttt{KMeans3P} are the fastest by far, though \texttt{KMeans1P} is not far behind. Both of the implementations seem to allow the first loop in general to work at in full parallel without synchronization or locking on anything in the assignment phase. Overall these implementations receive a speed-up factor of about four on my machine which has eight logical threads. This seems fairly reasonable since some of the code is still sequential, and creating tasks and starting threads also have some overhead.
+
+In the middle of the scale at about a speed-up factor of two we have \texttt{KMeans2Q}, and \texttt{KMeans2Stm}. I have already argued for why I believe \texttt{KMeans2Q} is slower than \texttt{KMeans2P} but \texttt{KMeans2Stm} should in some sense be just as fast as the \texttt{KMeans2P}. \texttt{KMeans2Stm} only differentiate itself by using transactions instead of locks, but maybe it is simply the overhead of the multiverse framework.
+
+The slowest implementations are predictably the non parallel implementations \texttt{KMeans1},\texttt{KMeans2}, \texttt{KMeans3}.
+

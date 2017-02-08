@@ -1,0 +1,209 @@
+% !TeX spellcheck = en_GB
+\section{Question 5}
+% Question 5.1
+\subsection{}
+On figure \ref{code:5:1} the sequential test of the \texttt{MSQueueNeater} data structure is shown. It tests that enqueues and dequeues work as they should both on their own and intertwined.
+
+\begin{figure}
+\begin{lstlisting}
+    assert queue.dequeue() == null;
+    queue.enqueue(1);
+    assert queue.dequeue() == 1;
+    assert queue.dequeue() == null;
+    assert queue.dequeue() == null;
+    queue.enqueue(1);
+    queue.enqueue(2);
+    queue.enqueue(3);
+    assert queue.dequeue() == 1;
+    assert queue.dequeue() == 2;
+    assert queue.dequeue() == 3;
+    assert queue.dequeue() == null;
+    assert queue.dequeue() == null;
+    queue.enqueue(1);
+    queue.enqueue(2);
+    queue.enqueue(3);
+    assert queue.dequeue() == 1;
+    queue.enqueue(4);
+    queue.enqueue(5);
+    assert queue.dequeue() == 2;
+    assert queue.dequeue() == 3;
+    assert queue.dequeue() == 4;
+    queue.enqueue(6);
+    assert queue.dequeue() == 5;
+    assert queue.dequeue() == 6;
+    assert queue.dequeue() == null;
+    assert queue.dequeue() == null;
+    // "stress" test
+    Random r = new Random();
+    int total = 100_000, amtAdded = 0, amtRemoved = 0;
+    while(amtAdded != total || amtRemoved != total) {
+      if(r.nextBoolean() && amtAdded != total) {
+        queue.enqueue(amtAdded);
+        amtAdded++;
+      } else {
+        if(amtRemoved != total && amtRemoved < amtAdded) {
+          assert queue.dequeue() == amtRemoved;
+          amtRemoved++;
+        }
+      }
+    }
+    assert queue.dequeue() == null;
+\end{lstlisting}
+\caption{The sequential test of MSQueueNeater}
+\label{code:5:1}
+\end{figure}
+
+% Question 5.2
+\subsection{}
+On figure \ref{code:5:2-1}, \ref{code:5:2-2} and \ref{code:5:2-3} the framework of the concurrent test can be seen. It is based on a producer-consumer pattern. I call the test with the following arguments \texttt{size=1000000}, \texttt{producers=10}, \texttt{consumers=10}. The \texttt{ExecutorService} is a \texttt{CachedThreadPool}.
+
+\begin{figure}
+\begin{lstlisting}
+public UnboundedQueueManyToManyConcurrencyTest(final int size, final int producers, final int consumers, UnboundedQueue<ThreadAndNum> queue) {
+    this.size = size;
+    this.producers = producers;
+    this.consumers = consumers;
+    this.queue = queue;
+    this.startBarrier = new CyclicBarrier((producers+consumers) + 1);
+    this.stopBarrier = new CyclicBarrier((producers+consumers) + 1);
+  }
+  @Override
+  public void runTest(ExecutorService pool) {
+    try {
+      for(int i = 0; i < producers; i++) {
+        pool.execute(new Producer(i));
+      }
+      for(int i = 0; i < consumers; i++) {
+        pool.execute(new Consumer(i));
+      }
+      startBarrier.await();
+      System.out.println("Starting many-to-many test");
+      stopBarrier.await();
+      assertTrue(queue.dequeue() == null);
+      assertEquals(enquedSum.get(), dequedSum.get());
+      System.out.println(" - many-to-many test success");
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    pool.shutdown();
+  }
+\end{lstlisting}
+\caption{The main class for the concurrency test of MSQueueNeater}
+\label{code:5:2-1}
+\end{figure}
+
+\begin{figure}
+\begin{lstlisting}
+class Producer implements Runnable
+{
+  final int threadNumber;
+  Producer(int threadNumber) {
+    this.threadNumber = threadNumber;
+  }
+  @Override
+  public void run() {
+    try {
+      final Random r = new Random();
+      int sum = 0;
+      startBarrier.await();
+      for(int i = 0; i<size;) {
+          if(r.nextBoolean()) { // important for MODIFICATION 2
+              queue.enqueue(new ThreadAndNum(threadNumber, i+1));
+              sum += i+1;
+              i++;
+          }
+      }
+      enquedSum.getAndAdd(sum);
+      stopBarrier.await();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+}
+\end{lstlisting}
+\caption{The producer of the MSQueueNeater concurrency test}
+\label{code:5:2-2}
+\end{figure}
+
+\begin{figure}
+\begin{lstlisting}
+class Consumer implements Runnable
+{
+  final int threadNumber;
+  final int[] producerLastNumber;
+  Consumer(int threadNumber) {
+    this.threadNumber = threadNumber;
+    this.producerLastNumber = new int[producers];
+  }
+  @Override
+  public void run() {
+    try {
+      int sum = 0;
+      startBarrier.await();
+      for(int i = 0; i<size; ) {
+        ThreadAndNum item = queue.dequeue();
+        if(item != null) {
+          assert producerLastNumber[item.threadNumber] < item.number; // REFERENCE 1: This is the assertion that fails because of MODIFICATION 3
+          producerLastNumber[item.threadNumber] = item.number;
+          sum += item.number;
+          i++;
+        }
+      }
+      dequedSum.getAndAdd(sum);
+      stopBarrier.await();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+}
+\end{lstlisting}
+\caption{The consumer of the MSQueueNeater concurrency test}
+\label{code:5:2-3}
+\end{figure}
+
+% Question 5.3
+\subsection{}
+To make the concurrent test not terminate I mutated the enqueue method by removing the while loop. By doing so the elements might never get added to the queue since each \texttt{compareAndSet} operation could fail, and therefore we are not ensured that an element certainly gets enqueued. The sequential test never detects this because it cannot fail a \texttt{compareAndSet}. The location of the modification is marked as \texttt{MODIFICATION 1} in figure \ref{code:5:3}.
+
+\newpar To provoke a \texttt{NullPointerException} the \texttt{tail.compareAndSet(last, next);} line in enqueue is modified to have the last argument be \texttt{null}, the sequential tests wont fail but the concurrent one will. The reason why this does not fail in the sequential test is because the tail never has another element after it. Therefore when working concurrently the \texttt{compareAndSwap} is there to move the tail reference to the true last element. But if we make this sanitising step faulty we will see that the data structure fails. The same is the case for the same line in dequeue. 
+
+This bug first became apparent when i added the random boolean check(artificially delaying production) in the producer class since it then exercised how the queue handled modifications when it had none to a few elements. The modification is marked as \texttt{MODIFICATION 2} in figure \ref{code:5:3}.
+
+\newpar I also managed to provoke a \texttt{AssertionError} originating from the assertion at REFERENCE 1 line in \ref{code:5:2-3} - that is the elements produced by a single thread were out of order. By changing all \texttt{compareAndSet} to \texttt{set} operations and removing them from if statements. By doing this we basically allow race conditions again because the variables becomes mutable by multiple threads at the same time. Therefore what happens is probably that one thread adds its element before another but updates the tail/head reference after. If this happens enough times a thread could have its element appear before the other elements it has added. The modification is marked as \texttt{MODIFICATION 3} in figure \ref{code:5:3}.
+
+\newpar Unfortunately my test does not detect errors when making small adjustments to the data structure such as changing single \texttt{compareAndSet()} to \texttt{set} operations. Therefore it would be a good idea to extend the test further such that we can argue that the data structure is implemented in a thread-safe way without any unnecessary code (like the much discussed if-statement in the original implementation by Michael and Scott).
+
+\begin{figure}
+\begin{lstlisting}
+public void enqueue(T item) { // at tail
+  Node<T> node = new Node<T>(item, null);
+  while (true) {            // MODIFICATION 1: (not actually done here)
+    final Node<T> last = tail.get(), next = last.next.get();
+    if (next != null) {
+      //tail.compareAndSet(last, null); // MODIFICATION 2: (outcommented)
+      tail.set(next);       // MODIFICATION 3:
+    } else {                // MODIFICATION 3:
+      last.next.set(node);  // MODIFICATION 3:
+      tail.set(node);       // MODIFICATION 3:
+      return;
+    }
+  }
+}
+public T dequeue() { // from head
+  while (true) {
+    final Node<T> first = head.get(), last = tail.get(), next = first.next.get();
+    if (next == null) {
+      return null;
+    } else if (first == last) {
+      //tail.compareAndSet(last, null); // MODIFICATION 2: (outcommented)
+      tail.set(next);       // MODIFICATION 3:
+    } else {                // MODIFICATION 3:
+      head.set( next);      // MODIFICATION 3:
+      return next.item;
+    }
+  }
+}
+\end{lstlisting}
+\caption{The mutation changes of the enqueue and dequeue methods}
+\label{code:5:3}
+\end{figure}

@@ -1,0 +1,142 @@
+% !TeX spellcheck = en_GB
+\section{Question 6}
+% Question 6.1
+\subsection{}
+In the figures \ref{code:6:1-1}, \ref{code:6:1-2}, \ref{code:6:1-3}, \ref{code:6:1-4} and \ref{code:6:1-5} my Java AKKA implementation of the specification given in \texttt{start.erl} is shown.
+
+\begin{figure}
+\begin{lstlisting}
+public static void main(String[] args)
+{
+    final ActorSystem system = ActorSystem.create("OddEven");
+    final ActorRef dispatcher = system.actorOf(Props.create(DispatcherActor.class), "dispather");
+    final ActorRef odd = system.actorOf(Props.create(WorkerActor.class), "odd");
+    final ActorRef even = system.actorOf(Props.create(WorkerActor.class), "even");
+    final ActorRef collector = system.actorOf(Props.create(CollectorActor.class), "collector");
+    dispatcher.tell(new InitMessage(odd, even, collector), ActorRef.noSender());
+    for(int i = 1; i<=10; i++) {
+        dispatcher.tell(new NumMessage(i), ActorRef.noSender());
+    }
+    try {
+        System.out.println("Press to Terminate");
+        System.in.read();
+    } catch (Exception e) {
+        e.printStackTrace();
+    } finally {
+        system.shutdown();
+    }
+}
+\end{lstlisting}
+\caption{The start implementation of the system specified by start.erl}
+\label{code:6:1-1}
+\end{figure}
+
+
+\begin{figure}
+\begin{lstlisting}
+public class DispatcherActor extends UntypedActor {
+    private ActorRef odd, even;
+    @Override
+    public void onReceive(Object message) throws Throwable {
+        if(message instanceof InitMessage) {
+            odd = ((InitMessage) message).getOdd();
+            even = ((InitMessage) message).getEven();
+            odd.tell(message, ActorRef.noSender());
+            even.tell(message, ActorRef.noSender());
+        }
+        else if(message instanceof NumMessage) {
+            int value = ((NumMessage) message).getNumber();
+            if(value % 2 == 0) {
+                even.tell(message, ActorRef.noSender());
+            } else {
+                odd.tell(message, ActorRef.noSender());
+            }
+        }
+    }
+}
+\end{lstlisting}
+\caption{The dispatcher actor implementation specified by start.erl}
+\label{code:6:1-2}
+\end{figure}
+
+
+\begin{figure}
+\begin{lstlisting}
+public class WorkerActor extends UntypedActor {
+    private ActorRef collector;
+    @Override
+    public void onReceive(Object message) throws Throwable {
+        if(message instanceof InitMessage) {
+            collector = ((InitMessage) message).getCollector();
+        } else if(message instanceof  NumMessage) {
+            int value = ((NumMessage) message).getNumber();
+            collector.tell(new NumMessage(value*value), ActorRef.noSender());
+        }
+    }
+}
+\end{lstlisting}
+\caption{The worker actor implementation specified by start.erl}
+\label{code:6:1-3}
+\end{figure}
+
+
+
+\begin{figure}
+\begin{lstlisting}
+public class CollectorActor extends UntypedActor {
+    @Override
+    public void onReceive(Object message) throws Throwable {
+        if(message instanceof  NumMessage) {
+            System.out.println(((NumMessage) message).getNumber());
+        }
+    }
+}
+\end{lstlisting}
+\caption{TThe collector actor implementation specified by start.erl}
+\label{code:6:1-4}
+\end{figure}
+
+
+
+\begin{figure}
+\begin{lstlisting}
+public class InitMessage implements Serializable {
+    private final ActorRef odd;
+    private final ActorRef even;
+    private final ActorRef collector;
+    public InitMessage(ActorRef odd, ActorRef even, ActorRef collector) {
+        this.odd = odd;
+        this.even = even;
+        this.collector = collector;
+    }
+    public ActorRef getOdd() { return odd; }
+    public ActorRef getEven() { return even; }
+    public ActorRef getCollector() { return collector; }
+}
+
+public class NumMessage implements Serializable {
+    private final int number;
+    public NumMessage(int number) { this.number = number; }
+    public int getNumber() { return number; }
+}
+\end{lstlisting}
+\caption{The init and num message implementation specified by start.erl}
+\label{code:6:1-5}
+\end{figure}
+
+% Question 6.2
+\subsection{}
+The system works and produces the following output:
+\begin{lstlisting}
+4
+1
+9
+25
+16
+36
+49
+64
+81
+100
+\end{lstlisting}
+This is of course not in order, but as stated in the exam assignment that is expected.

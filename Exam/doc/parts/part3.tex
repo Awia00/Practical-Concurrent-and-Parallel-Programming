@@ -1,0 +1,80 @@
+% !TeX spellcheck = en_GB
+\section{Question 3}
+% Question 3.1
+\subsection{}
+In figure \ref{code:3:1} my implementation of the transactional memory / multiverse version of \texttt{Cluster} can be seen. Most noticeable the \texttt{sumx}, \texttt{sumy} and \texttt{count} fields are now the transactional data types \texttt{TxnDouble} and \texttt{TxnInteger}, and instead of the synchronized keyword for locking, the atomic keyword is used with a lambda for those parts of the methods which should be handled as transactions. Again note that the most important part the exam assignment is that \texttt{addToMean} is done atomically to ensure that \texttt{KMeans2Stm}. Mean does not change in the assignment part and therefore it does not pose a threat that it is accessed concurrently. The rest of the methods are not called on the same \texttt{Cluster} concurrently.
+
+\begin{figure}
+\begin{lstlisting}
+static class Cluster extends ClusterBase {
+    private Point mean;
+    private final TxnDouble sumx, sumy;
+    private final TxnInteger count;
+    public Cluster(Point mean) {
+        sumx = newTxnDouble();
+        sumy = newTxnDouble();
+        count = newTxnInteger();
+        this.mean = mean;
+    }
+    public void addToMean(Point p) {
+        atomic (() -> {
+            sumx.set(sumx.get() + p.x);
+            sumy.set(sumy.get() + p.y);
+            count.increment();
+        });
+    }
+    public boolean computeNewMean() {
+        Point oldMean = this.mean;
+        atomic( () -> {
+            this.mean = new Point(sumx.get()/count.get(), sumy.get()/count.get());
+        });
+        return oldMean.almostEquals(this.mean);
+    }
+    public void resetMean() {
+        atomic( () -> {
+            sumx.set(0.0);
+            sumy.set(0.0);
+            count.set(0);
+        });
+    }
+    @Override
+    public Point getMean() { return mean; }
+}
+\end{lstlisting}
+\caption{Thread safety using transaction in KMeans2Stm}
+\label{code:3:1}
+\end{figure}
+
+% Question 3.2
+\subsection{}
+Here the running time and iterations of \texttt{KMeans2Stm} can be seen:
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans2Stm Real time:     3.214
+...
+Used 108 iterations
+class kmean.KMeans2Stm Real time:     2.924
+...
+Used 108 iterations
+class kmean.KMeans2Stm Real time:     3.287
+\end{lstlisting}
+
+% Question 3.3
+\subsection{}
+These are the first 5 means of \texttt{KMeans2Stm}
+\begin{lstlisting}
+mean = (87,96523339545510, 68,02660923585381)
+mean = (10,68258565222153, 47,90993881688515)
+mean = (17,94392765121715, 57,92167357590438)
+mean = (48,03811144575212, 28,07238725661516)
+mean = (78,02580276649083, 68,03938084899143)
+\end{lstlisting}
+
+% Question 3.4
+\subsection{}
+Since the \texttt{KMeans2Stm} logic is exactly the same as in \texttt{KMeans2P} the same concurrency problems would occur if I removed the transactions code. The program would "never" terminate because each modification to the \texttt{sumx}, \texttt{sumy} and \texttt{count} fields could be overwritten due to a race-condition which would be different each time.

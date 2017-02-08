@@ -1,0 +1,178 @@
+% !TeX spellcheck = en_GB
+\section{Question 1}
+
+% Question 1.1
+\subsection{}
+Here the running time and iterations of \texttt{KMeans1} can be seen
+
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T09:30:50+0100
+...
+Used 108 iterations
+class kmean.KMeans1  Real time:     5.313
+...
+Used 108 iterations
+class kmean.KMeans1  Real time:     5.453
+...
+Used 108 iterations
+class kmean.KMeans1  Real time:     5.011
+\end{lstlisting}
+
+% Question 1.2
+\subsection{}
+In figure \ref{code:1:2} the assignment step of \texttt{KMeans1P} can be seen. To split the points into eight parts; start and ending indexes are calculated for each task, such that they do not work on the same elements of \texttt{points}. To access clusters from inside the lambda, I needed to make a local final reference to \texttt{clusters} -- which is fine since the reference is not changed in the assignment step. Inside the \texttt{Callable<Void>}(which is in the form of a lambda) the code is almost identical to the original code, but of course only iterating over the points of the task.
+
+\newpar This approach allows the multiple threads to acquire tasks and do the work in parallel, since each Point is independent from one another. Most of the work done on Clusters are read only and therefore pose no threat-safe problems, but there is one method which modifies shared state which we will cover in question \ref{sec:1:4}.
+
+\begin{figure}
+\begin{lstlisting}
+final AtomicBoolean converged = new AtomicBoolean();
+ExecutorService executorService = newWorkStealingPool();
+while (!converged.get()) {
+{ // Assignment step: put each point in exactly one cluster
+    List<Callable<Void>> tasks = new ArrayList<>();
+     // notice that taskCount corrosponds to "P" in the exam assignment.
+    final int taskCount = 8, perTask = points.length / taskCount;
+    for (int t = 0; t< taskCount; t++) {
+        final int from = perTask * t,
+                  to = (t+1 == taskCount) ? points.length : perTask * (t+1);
+        final Cluster[] finalClusters = clusters; // effective final while we are working in parallel
+        tasks.add(() -> {
+            for(int i = from; i<to; i++) {
+                final Point p = points[i];
+                Cluster best = null;
+                for (Cluster c : finalClusters)
+                    if (best == null || p.sqrDist(c.mean) < p.sqrDist(best.mean))
+                        best = c;
+                best.add(p);
+            }
+            return null;
+        });
+    }
+    try {
+        List<Future<Void>> futures = executorService.invokeAll(tasks);
+        for (Future<?> future : futures)
+            future.get();
+    } catch (InterruptedException exn) {
+        System.out.println("Interrupted: " + exn);
+    } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+    }
+}
+\end{lstlisting}
+\caption{Assignment step of KMeans1P}
+\label{code:1:2}
+\end{figure}
+
+% Question 1.3
+\subsection{}
+In figure \ref{code:1:3} the implementation of the update step of \texttt{KMeans1P} can be seen. Just like the assignment step, I make an effectively final reference to \texttt{clusters} such that it is accessible in the \texttt{Callable<Cluster>} lambda. The logic is the same as in the original code, but each task is responsible for a cluster. After creating a lambda it is submitted to the executor service, which in the end iterates over all its \texttt{Future}s, and adding the results to the \texttt{newClusters} collection. 
+
+It should be noted that I changed the \texttt{converged} variable to be of \texttt{AtomicBoolean} type since I first of all needed it to be final to access it inside the task. Furthermore since it had to be modified from potentially multiple threads -- a thread-safe class was needed. This of course creates a synchronization point and slows the implementation down a bit.
+
+\begin{figure}
+\begin{lstlisting}
+{ // Update step: recompute mean of each cluster
+    converged.set(true);
+    final ArrayList<Cluster> newClusters = new ArrayList<>();
+    final Cluster[] finalClusters1 = clusters; // effective final while working in parallel
+    Future[] futures = new Future[clusters.length];
+    for (int t = 0; t < clusters.length; t++) {
+        final int thisCluster = t;
+        futures[t] = (executorService.submit((() -> {
+            Cluster c = finalClusters1[thisCluster];
+            Cluster result = null;
+            Point mean = c.computeMean();
+            if (!c.mean.almostEquals(mean))
+                converged.set(false);
+            if (mean != null)
+                result = new Cluster(mean);
+            else
+                System.out.printf("===> Empty cluster at %s%n", c.mean);
+            return result;
+        })));
+    }
+    try {
+        for (Future<Cluster> future : futures)
+            newClusters.add(future.get());
+    } catch (InterruptedException exn) {
+        System.out.println("Interrupted: " + exn);
+    } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+    }
+    clusters = newClusters.toArray(new Cluster[newClusters.size()]);
+}
+\end{lstlisting}
+\caption{Update step of KMeans1P}
+\label{code:1:3}
+\end{figure}
+
+% Question 1.4
+\subsection{}\label{sec:1:4}
+Only one change was needed to make the \texttt{Cluster} class thread-safe for our purpose. That was to add a lock on the \texttt{add} method as seen in figure \ref{code:1:4}. The fields of the class are private and immutable. It is only the add method which modifies the collection \texttt{points}. Therefore we have eliminated the unsafe shared mutable data by using atomic access to the data. If we had not added this we could risk that we lost writes(the added points).
+
+I have also added locking on the same lock in the \texttt{computeMean} method, since it uses the points collection which could be modified. In our case however it does not matter since these two methods are never called concurrently.
+
+\begin{figure}
+\begin{lstlisting}
+private final Object lock = new Object();
+public void add(Point p) {
+    synchronized (lock) {
+        points.add(p);
+    }
+}
+public Point computeMean() {
+    double sumx = 0.0, sumy = 0.0;
+    int count = 0;
+    synchronized (lock) {
+        for (Point p : points) {
+            sumx += p.x;
+            sumy += p.y;
+        }
+        count = points.size();
+    }
+    return count == 0 ? null : new Point(sumx/count, sumy/count);
+}
+\end{lstlisting}
+\caption{Thread safety of Cluster in KMeans1P}
+\label{code:1:4}
+\end{figure}
+
+% Question 1.5
+\subsection{}
+Here the running time and iterations of \texttt{KMeans1P} can be seen
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans1P Real time:     1.566
+...
+Used 108 iterations
+class kmean.KMeans1P Real time:     1.470
+...
+Used 108 iterations
+class kmean.KMeans1P Real time:     1.444
+\end{lstlisting}
+
+% Question 1.6
+\subsection{}
+These are the first five means of \texttt{KMeans1P}
+\begin{lstlisting}
+mean = (87,96523339545504, 68,02660923585384)
+mean = (10,68258565222153, 47,90993881688516)
+mean = (17,94392765121714, 57,92167357590439)
+mean = (48,03811144575210, 28,07238725661513)
+mean = (78,02580276649086, 68,03938084899141)
+\end{lstlisting}
+
+% Question 1.7
+\subsection{}
+If the locking is removed I get a \texttt{NullPointerException} in \texttt{computeSum}. This is most likely caused when the collection was modified by \texttt{add} since it was not atomic. Therefore the length property might be unrepresenting, due to a race condition. This then creates an error in the later iteration of \texttt{points}.
+
+

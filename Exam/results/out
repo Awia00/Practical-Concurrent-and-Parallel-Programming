@@ -1,0 +1,54 @@
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+Used 108 iterations
+class kmean.KMeans1  Real time:     5.313
+Used 108 iterations
+class kmean.KMeans1P Real time:     1.566
+Used 108 iterations
+class kmean.KMeans2  Real time:     5.482
+Used 108 iterations
+class kmean.KMeans2P Real time:     1.309
+Used 108 iterations
+class kmean.KMeans2Q Real time:     2.656
+Used 108 iterations
+class kmean.KMeans2Stm Real time:     3.214
+Used 108 iterations
+class kmean.KMeans3  Real time:     4.972
+Used 108 iterations
+class kmean.KMeans3P Real time:     1.289
+
+Used 108 iterations
+class kmean.KMeans1  Real time:     5.453
+Used 108 iterations
+class kmean.KMeans1P Real time:     1.470
+Used 108 iterations
+class kmean.KMeans2  Real time:     5.452
+Used 108 iterations
+class kmean.KMeans2P Real time:     1.231
+Used 108 iterations
+class kmean.KMeans2Q Real time:     2.880
+Used 108 iterations
+class kmean.KMeans2Stm Real time:     2.924
+Used 108 iterations
+class kmean.KMeans3  Real time:     4.935
+Used 108 iterations
+class kmean.KMeans3P Real time:     1.201
+
+Used 108 iterations
+class kmean.KMeans1  Real time:     5.011
+Used 108 iterations
+class kmean.KMeans1P Real time:     1.444
+Used 108 iterations
+class kmean.KMeans2  Real time:     4.558
+Used 108 iterations
+class kmean.KMeans2P Real time:     1.269
+Used 108 iterations
+class kmean.KMeans2Q Real time:     2.187
+Used 108 iterations
+class kmean.KMeans2Stm Real time:     3.287
+Used 108 iterations
+class kmean.KMeans3  Real time:     4.973
+Used 108 iterations
+class kmean.KMeans3P Real time:     1.182

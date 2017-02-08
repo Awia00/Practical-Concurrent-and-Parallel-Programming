@@ -1,0 +1,251 @@
+% !TeX spellcheck = en_GB
+\section{Question 2}
+% Question 2.1
+\subsection{}
+Here the running time and iterations of \texttt{KMeans2} can be seen:
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans2  Real time:     5.482
+...
+Used 108 iterations
+class kmean.KMeans2  Real time:     5.452
+...
+Used 108 iterations
+class kmean.KMeans2  Real time:     4.558
+\end{lstlisting}
+
+% Question 2.2
+\subsection{}
+In figure \ref{code:2:2} the implementation of the assignment step of \texttt{KMeans2P} can be seen. The approach to use tasks is similar to that of \texttt{KMeans1P}. I calculate ranges of the \texttt{points} array for each task, and each task then iterates over its points. The method inside the lambda is similar to what it was in \texttt{KMeans2}. At the end the \texttt{invokeAll} method starts all the threads with my executorService(a \texttt{WorkStealingPool}) and get the results to ensure that all tasks are done.
+
+\begin{figure}
+\begin{lstlisting}
+ExecutorService executorService = newWorkStealingPool();
+[...]
+{ // Assignment step: put each point in exactly one cluster
+List<Callable<Void>> tasks = new ArrayList<>();
+for(int t = 0; t<taskCount; t++) { // notice that taskCount corrosponds to "P" in the exam assignment.
+    final int from = perTask * t,
+              to = (t+1 == taskCount) ? points.length : perTask * (t+1);
+    tasks.add(() -> {
+        for (int pi=from; pi<to; pi++) {
+            Point p = points[pi];
+            Cluster best = null;
+            for (Cluster c : clusters)
+                if (best == null || p.sqrDist(c.mean) < p.sqrDist(best.mean))
+                    best = c;
+            myCluster[pi] = best;
+        }
+        return null;
+    });
+}
+try {
+    List<Future<Void>> futures = executorService.invokeAll(tasks);
+    for (Future<?> future : futures)
+        future.get();
+} catch (InterruptedException exn) {
+    System.out.println("Interrupted: " + exn);
+} catch (ExecutionException e) {
+    throw new RuntimeException(e);
+}
+\end{lstlisting}
+\caption{Assignment step of KMeans2P}
+\label{code:2:2}
+\end{figure}
+
+% Question 2.3
+\subsection{}
+In figure \ref{code:2:3} the implementation of the update step of \texttt{KMeans2P} can be seen. The only part which is calculated concurrently using tasks is the updating of means. The approach is just like the assignment step above. The \texttt{points} array is divided in equal parts based on the number of tasks(eight) and then each task iterates over its points. These tasks are added to a list of \texttt{Callable<Void>} which are then invoked by the \texttt{executorService}. The resetting of mean and the calculation of the \texttt{converged} variable (based on the mean) is still sequentially computed.
+
+\begin{figure}
+\begin{lstlisting}
+{ // Update step: recompute mean of each cluster
+    for (Cluster c : clusters)
+        c.resetMean();
+    List<Callable<Void>> tasks = new ArrayList<>();
+    for(int t = 0; t<taskCount; t++) {  // notice that taskCount corrosponds to "P" in the exam assignment.
+        final int fromPoints = perTask * t,
+                  toPoints = (t+1 == taskCount) ? points.length : perTask * (t+1);
+        tasks.add(() -> {
+            for(int pi = fromPoints; pi<toPoints; pi++) {
+                myCluster[pi].addToMean(points[pi]);
+            }
+            return null;
+        });
+    }
+    try {
+        List<Future<Void>> futures = executorService.invokeAll(tasks);
+        for (Future<?> future : futures)
+            future.get();
+    } catch (InterruptedException exn) {
+        System.out.println("Interrupted: " + exn);
+    } catch (ExecutionException e) {
+        throw new RuntimeException(e);
+    }
+    converged = true;
+    for (Cluster c : clusters)
+        converged &= c.computeNewMean();
+}
+\end{lstlisting}
+\caption{Update step of KMeans2P}
+\label{code:2:3}
+\end{figure}
+
+% Question 2.4
+\subsection{}
+In figure \ref{code:2:4} the synchronization code can be seen. For the purposes of our exercise, actually only the lock in \texttt{addToMean} is required, since it is the only method on \texttt{Cluster} which is called from the tasks. A lock is needed since the method modifies shared fields; \texttt{mean}, \texttt{sumx}, \texttt{sumy}, and therefore we need to have atomic access to the data. 
+
+The other methods shown are included to show where the lock also could have been added, since these methods also modifies the shared fields.
+
+\begin{figure}
+\begin{lstlisting}
+private Object lock = new Object();
+public void addToMean(Point p) {
+    synchronized (lock) {
+        sumx += p.x;
+        sumy += p.y;
+        count++;
+    }
+}
+// Recompute mean, return true if it stays almost the same, else false
+public boolean computeNewMean() {
+    Point oldMean;
+    synchronized (lock) {
+        oldMean = this.mean;
+        this.mean = new Point(sumx / count, sumy / count);
+    }
+    return oldMean.almostEquals(this.mean);
+}
+public void resetMean() {
+    synchronized (lock) {
+        sumx = sumy = 0.0;
+        count = 0;
+    }
+}
+\end{lstlisting}
+\caption{Thread safety of Cluster in KMeans2P}
+\label{code:2:4}
+\end{figure}
+
+% Question 2.5
+\subsection{}
+Here the running time and iterations of \texttt{KMeans2P} can be seen:
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans2P Real time:     1.309
+...
+Used 108 iterations
+class kmean.KMeans2P Real time:     1.231
+...
+Used 108 iterations
+class kmean.KMeans2P Real time:     1.269
+\end{lstlisting}
+\clearpage
+% Question 2.6
+\subsection{}
+These are the first five means of \texttt{KMeans2P}
+\begin{lstlisting}
+mean = (87,96523339545512, 68,02660923585373)
+mean = (10,68258565222153, 47,90993881688518)
+mean = (17,94392765121715, 57,92167357590444)
+mean = (48,03811144575210, 28,07238725661512)
+mean = (78,02580276649087, 68,03938084899140)
+\end{lstlisting}
+
+% Question 2.7
+\subsection{}
+If the lock \texttt{addToMean} was removed then \texttt{KMeans2P} did not succeed in finishing in less than a minute on the 200000 points. The logic of \texttt{KMeans2(P)} relies on the mean to be equal to that of the previous iteration, but if added points are "lost" due to race-conditions on \texttt{count}, \texttt{sumx} and/or \texttt{sumy}, then it would be very unlikely that two iterations would compute exactly the same mean - though it of course would be possible.
+
+I tried to decrease the number of points and $k$ to much lower values, $200$ and $10$ respectively and the program managed to terminate with results albeit probably not correct results, at very varying running times -- this further supports my argument.
+
+
+%============== STM =================
+
+% Question 2.8
+\subsection{}
+The two approaches are equally tread-safe when \texttt{addToMean} is thread-safe. First of all because \texttt{addToMean} is commutative (that is calling it first with one point and then another wont change the outcome). Since each element in the arrays are independent from one another, other iterations do not override \texttt{myCluster[pi]}'s best. Therefore its safe to directly add the mean in the assignment step.
+
+% Question 2.9
+\subsection{}
+On figure \ref{code:2:9} my implementation of \texttt{KMeans2Q}. First the update step has been simplified to first calculate the converge and then resetting the mean - one could also put the resetting of the mean before the assignment step. Also note that \texttt{myClusters} is gone and that \texttt{Cluster best} directly gets the point p added to its mean.
+
+\begin{figure}
+\begin{lstlisting}
+public void findClusters(int[] initialPoints) {
+final Cluster[] clusters = GenerateData.initialClusters(points, initialPoints, Cluster::new, Cluster[]::new);
+boolean converged = false;
+ExecutorService executorService = newWorkStealingPool();
+while (!converged) {
+    final int taskCount = 8, perTask = points.length / taskCount;
+    iterations++;
+    { // Assignment step: put each point in exactly one cluster
+        List<Callable<Void>> tasks = new ArrayList<>();
+        for(int t = 0; t<taskCount; t++) {
+            final int from = perTask * t,
+                      to = (t+1 == taskCount) ? points.length : perTask * (t+1);
+            tasks.add(() -> {
+                for (int pi=from; pi<to; pi++) {
+                    Point p = points[pi];
+                    Cluster best = null;
+                    for (Cluster c : clusters)
+                        if (best == null || p.sqrDist(c.mean) < p.sqrDist(best.mean))
+                            best = c;
+                    best.addToMean(p);
+                }
+                return null;
+            });
+        }
+        try {
+            List<Future<Void>> futures = executorService.invokeAll(tasks);
+            for (Future<?> future : futures)
+                future.get();
+        } catch (Exception exn) {
+            throw new RuntimeException(exn);
+        } 
+    }
+    { // update step
+        converged = true;
+        for (Cluster c : clusters)
+            converged &= c.computeNewMean();
+        for (Cluster c : clusters)
+            c.resetMean();
+    }
+}
+this.clusters = clusters;
+executorService.shutdown();
+}
+\end{lstlisting}
+\caption{Implementation of KMeans2Q}
+\label{code:2:9}
+\end{figure}
+\clearpage
+% Question 2.10
+\subsection{}
+Here the running time and iterations of \texttt{KMeans2Q} can be seen: 
+\begin{lstlisting}
+# OS:   Windows 10; 10.0; amd64
+# JVM:  Oracle Corporation; 1.8.0_101
+# CPU:  Intel64 Family 6 Model 94 Stepping 3, GenuineIntel; 8 "cores"
+# Date: 2017-01-10T19:42:09+0100
+...
+Used 108 iterations
+class kmean.KMeans2Q Real time:     2.656
+...
+Used 108 iterations
+class kmean.KMeans2Q Real time:     2.880
+...
+Used 108 iterations
+class kmean.KMeans2Q Real time:     2.187
+\end{lstlisting}
+
+Therefore \texttt{KMeans2P} is actually the quickest of the two implementations even though it generates more tasks and reiterates the points. This is probably because the calculation in the assignment step is expensive, and in \texttt{KMeans2P} the threads do not wait for synchronization on the cluster. Therefore \texttt{KMeans2P} probably works more in parallel on the expensive step and allow the threads to work fully with no waiting time.
